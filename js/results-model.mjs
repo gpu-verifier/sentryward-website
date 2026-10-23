@@ -2,6 +2,7 @@ import { runtimeReduction } from './sync-removal.mjs';
 
 export const VERDICTS = {
   verified: { label: 'Verified', group: 'verified' },
+  race_free: { label: 'Race free', group: 'verified' },
   potential_race: { label: 'Potential race', group: 'findings' },
   invalid_lifecycle: { label: 'Invalid lifecycle', group: 'findings' },
   not_wellsynced: { label: 'Not well-synchronized', group: 'findings' },
@@ -11,6 +12,25 @@ export const VERDICTS = {
   timeout: { label: 'Timeout', group: 'inconclusive' },
   analysis_budget_exceeded: { label: 'Analysis limit', group: 'inconclusive' },
 };
+
+export const FRESHNESS = {
+  current: 'Current version checked',
+  reused: 'Matching result reused',
+  deferred_resource: 'Awaiting high-memory execution',
+  pending: 'Awaiting execution',
+  failed: 'Execution failed',
+  historical: 'Historical record only',
+};
+
+export function isCurrent(row) {
+  return !row.automation || ['current', 'reused'].includes(row.automation.state);
+}
+
+export function freshnessLabel(row) { return FRESHNESS[row.automation?.state] || 'Recorded result'; }
+
+export function resultGroup(row) {
+  return isCurrent(row) ? VERDICTS[row.result]?.group || 'other' : 'awaiting';
+}
 
 const LIBRARIES = [
   ['cutlass', 'CUTLASS'], ['deepgemm', 'DeepGEMM'],
@@ -40,7 +60,7 @@ export function validateSnapshot(data) {
     throw new Error('Missing snapshot provenance.');
   }
   const names = new Set();
-  const counts = {};
+  const counts = Object.create(null);
   for (const row of data.results) {
     if (typeof row.name !== 'string' || !row.name || names.has(row.name) || typeof row.result !== 'string' || !row.checks) {
       throw new Error('Invalid or duplicate kernel record.');
@@ -60,20 +80,39 @@ export function validateResults(data) {
   if (data?.schema !== 'sentryward.kernel-results.v1' || !Array.isArray(data.results) || !data.results.length) {
     throw new Error('Unsupported or empty results catalog.');
   }
-  const source = data.verification_results_source;
-  if (source?.repository !== 'gpu-verifier/sentryward' || !/^[0-9a-f]{40}$/.test(source.revision) ||
-      typeof source.path !== 'string' || !/^[0-9a-f]{64}$/.test(source.sha256)) {
-    throw new Error('Missing results provenance.');
+  const automated = data.publication !== undefined;
+  if (automated) {
+    const publication = data.publication;
+    if (publication?.source_repository !== 'gpu-verifier/sentryward' ||
+        !/^[0-9a-f]{40}$/.test(publication.source_revision) || !/^[0-9a-f]{64}$/.test(publication.snapshot_id) ||
+        typeof publication.run_id !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(publication.run_id) ||
+        typeof publication.created_at !== 'string' || !Number.isFinite(Date.parse(publication.created_at)) ||
+        typeof publication.evidence_base_url !== 'string') {
+      throw new Error('Missing publication provenance.');
+    }
+  } else {
+    const source = data.verification_results_source;
+    if (source?.repository !== 'gpu-verifier/sentryward' || !/^[0-9a-f]{40}$/.test(source.revision) ||
+        typeof source.path !== 'string' || !/^[0-9a-f]{64}$/.test(source.sha256)) {
+      throw new Error('Missing results provenance.');
+    }
   }
   const names = new Set();
-  const counts = {};
+  const counts = Object.create(null);
   for (const row of data.results) {
-    if (typeof row.name !== 'string' || !row.name || names.has(row.name) || typeof row.result !== 'string' || !row.result ||
+    if (typeof row.name !== 'string' || !row.name || names.has(row.name) ||
+        !(typeof row.result === 'string' && row.result || automated && row.result === null) ||
         (row.diagnostics !== undefined && !Array.isArray(row.diagnostics))) {
       throw new Error('Invalid or duplicate kernel record.');
     }
+    if (automated && (!row.automation || !Object.hasOwn(FRESHNESS, row.automation.state) ||
+        row.automation.attempted_revision !== data.publication.source_revision ||
+        (row.automation.report_status !== undefined && typeof row.automation.report_status !== 'string') ||
+        isCurrent(row) && (!row.result || !/^[0-9a-f]{64}$/.test(row.automation.verification_key)))) {
+      throw new Error('Invalid execution identity or freshness.');
+    }
     names.add(row.name);
-    counts[row.result] = (counts[row.result] || 0) + 1;
+    if (isCurrent(row)) counts[row.result] = (counts[row.result] || 0) + 1;
   }
   const keys = new Set([...Object.keys(counts), ...Object.keys(data.counts || {})]);
   if (!data.counts || [...keys].some(key => (counts[key] || 0) !== data.counts[key])) {
@@ -83,12 +122,16 @@ export function validateResults(data) {
 }
 
 export function summarize(rows) {
-  const stats = { total: rows.length, verified: 0, findings: 0, inconclusive: 0, other: 0, conditional: 0, counts: {} };
+  const stats = { total: rows.length, current: 0, awaiting: 0, verified: 0, findings: 0, inconclusive: 0, other: 0, conditional: 0, counts: Object.create(null) };
   for (const row of rows) {
-    stats[VERDICTS[row.result]?.group || 'other']++;
-    stats.counts[row.result] = (stats.counts[row.result] || 0) + 1;
+    stats[resultGroup(row)]++;
+    if (isCurrent(row)) {
+      stats.current++;
+      stats.counts[row.result] = (stats.counts[row.result] || 0) + 1;
+    }
     if (row.analysis_scope) stats.conditional++;
   }
+  stats.counts = { ...stats.counts };
   return stats;
 }
 
@@ -97,31 +140,36 @@ export function filterRows(rows, { search = '', library = '', verdict = '', grou
   const filtered = rows.filter(row => {
     if (withStudy && row.syncStudy?.[scenario]?.removal.status !== 'measured') return false;
     if (library && libraryOf(row.name) !== library) return false;
-    if (verdict && row.result !== verdict) return false;
-    if (group && (VERDICTS[row.result]?.group || 'other') !== group) return false;
+    if (verdict && (!isCurrent(row) || row.result !== verdict)) return false;
+    if (group && resultGroup(row) !== group) return false;
     const text = [row.name, displayName(row.name), libraryOf(row.name), row.result,
-      VERDICTS[row.result]?.label || '', ...(row.diagnostics || []).map(d => d.code)].join(' ').toLowerCase();
+      VERDICTS[row.result]?.label || '', freshnessLabel(row), row.historical?.result,
+      ...[...(row.diagnostics || []), ...(row.historical?.diagnostics || [])].map(d => d.code)].join(' ').toLowerCase();
     return terms.every(term => text.includes(term));
   });
   const numeric = (a, b) => (Number.isFinite(b) ? b : -Infinity) - (Number.isFinite(a) ? a : -Infinity);
   return filtered.sort((a, b) => {
     let order = 0;
     if (sort === 'time') order = numeric(analysisSeconds(a), analysisSeconds(b));
-    if (sort === 'memory') order = numeric(a.native_peak_rss_mib, b.native_peak_rss_mib);
+    if (sort === 'memory') order = numeric(peakMemoryMiB(a), peakMemoryMiB(b));
     if (sort === 'removable' || sort === 'improvement') {
       const metric = row => sort === 'removable' ? row.syncStudy?.[scenario]?.removal.removable : runtimeReduction(row.syncStudy?.[scenario]?.performance);
       const left = metric(a), right = metric(b);
       order = (Number.isFinite(right) ? right : -Infinity) - (Number.isFinite(left) ? left : -Infinity);
     }
-    if (sort === 'result') order = a.result.localeCompare(b.result);
+    if (sort === 'result') order = (a.result || '').localeCompare(b.result || '');
     return order || a.name.localeCompare(b.name);
   });
 }
 
-export function resultLabel(value) { return VERDICTS[value]?.label || value.replace(/_/g, ' '); }
+export function resultLabel(value) { return VERDICTS[value]?.label || (typeof value === 'string' ? value.replace(/_/g, ' ') : 'No recorded verdict'); }
 export function analysisSeconds(row) {
   // Prefer the catalog's analysis time; retain support for historical snapshots.
   const value = row.analysis_time_seconds !== undefined ? row.analysis_time_seconds : row.elapsed_seconds;
+  return Number.isFinite(value) && value >= 0 ? value : null;
+}
+export function peakMemoryMiB(row) {
+  const value = row.peak_rss_mib !== undefined ? row.peak_rss_mib : row.native_peak_rss_mib;
   return Number.isFinite(value) && value >= 0 ? value : null;
 }
 export function formatSeconds(value) {

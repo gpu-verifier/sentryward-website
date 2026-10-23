@@ -1,6 +1,6 @@
-import { VERDICTS, libraryOf, displayName, summarize, filterRows, resultLabel, analysisSeconds, formatSeconds, formatMemory } from './results-model.mjs?v=20261015-analysis-time';
+import { VERDICTS, libraryOf, displayName, summarize, filterRows, resultLabel, analysisSeconds, peakMemoryMiB, formatSeconds, formatMemory, isCurrent, freshnessLabel } from './results-model.mjs?v=20261021-snapshots';
 
-import { REPOSITORY, RESULTS_PAGE, loadResults, embeddedStudy, sourceFileURL, loadInputConfig } from './results-source.mjs?v=20261015-analysis-time';
+import { REPOSITORY, loadResults, embeddedStudy, sourceFileURL, loadInputConfig, catalogURL } from './results-source.mjs?v=20261021-snapshots';
 
 import { SCENARIOS, removalLabel, performanceLabel, runtimeReduction, summarizeStudy } from './sync-removal.mjs';
 
@@ -45,7 +45,7 @@ function readState() {
     search: params.get('q') || '',
     library: libraries.has(params.get('library')) ? params.get('library') : '',
     verdict: stats.counts[params.get('result')] ? params.get('result') : '',
-    group: ['verified', 'findings', 'inconclusive', 'other'].includes(group) ? group : '',
+    group: ['verified', 'findings', 'inconclusive', 'other', 'awaiting'].includes(group) ? group : '',
     sort: ['name', 'time', 'memory', 'result', 'removable', 'improvement'].includes(params.get('sort')) ? params.get('sort') : 'name',
     scenario: params.get('input') === 'larger' ? 'larger' : 'recorded',
     withStudy: studyAvailable && params.get('study') === 'available',
@@ -72,11 +72,12 @@ function resetFilters() { setFilter({ search: '', library: '', verdict: '', grou
 function renderOverview() {
   const groups = [
     ['', 'All', stats.total],
-    ['verified', 'Verified', stats.verified],
-    ['findings', 'Reported findings', stats.findings],
-    ['inconclusive', 'Inconclusive', stats.inconclusive],
+    ['verified', 'Current passes', stats.verified],
+    ['findings', 'Current findings', stats.findings],
+    ['inconclusive', 'Current inconclusive', stats.inconclusive],
   ];
-  if (stats.other) groups.push(['other', 'Other', stats.other]);
+  if (stats.other) groups.push(['other', 'Other current outcomes', stats.other]);
+  if (stats.awaiting) groups.push(['awaiting', 'Awaiting current result', stats.awaiting]);
   for (const [group, title, count] of groups) {
     const button = el('button', 'result-group');
     button.type = 'button';
@@ -174,14 +175,18 @@ function render() {
     if (row.analysis_scope) meta.append(el('span', 'scope-tag', 'Conditional scope'));
     nameCell.append(name, meta);
     const resultCell = el('td');
-    resultCell.append(badge(row.result));
+    if (isCurrent(row)) resultCell.append(badge(row.result));
+    else resultCell.append(el('span', 'freshness-label', freshnessLabel(row)));
+    if (row.automation) {
+      resultCell.append(el('small', 'result-freshness', isCurrent(row) ? freshnessLabel(row) : row.historical?.result ? `Previous: ${resultLabel(row.historical.result)}` : 'No previous verdict'));
+    }
     tr.append(nameCell, resultCell);
     studyCells(row, tr);
     tr.append(el('td', 'numeric', formatSeconds(analysisSeconds(row))));
     fragment.append(tr);
   }
   $('kernel-rows').replaceChildren(fragment);
-  const groupLabel = state.group ? ` · ${state.group === 'findings' ? 'reported findings' : state.group}` : '';
+  const groupLabel = state.group ? ` · ${state.group === 'findings' ? 'current findings' : state.group === 'awaiting' ? 'awaiting current result' : state.group}` : '';
   $('result-count').textContent = `${number(filtered.length)} of ${number(rows.length)} configurations${groupLabel}`;
   $('page-info').textContent = filtered.length ? `${offset + 1}–${Math.min(offset + PAGE_SIZE, filtered.length)} · Page ${state.page} of ${pages}` : '0 configurations';
   $('previous').disabled = state.page === 1;
@@ -227,7 +232,7 @@ function inputTable(parent, title, headings, rows, expandable = false) {
   parent.append(section);
 }
 
-async function inputDetail(parent, row) {
+async function inputDetail(parent, row, publication) {
   const section = el('section', 'input-config');
   section.append(el('h3', '', 'Input configuration'));
   const content = el('div');
@@ -236,13 +241,11 @@ async function inputDetail(parent, row) {
   section.append(content);
   parent.append(section);
   try {
-    const { config, content: raw } = await loadInputConfig(row.files?.input);
+    const { config, content: raw } = await loadInputConfig(row.files?.input, fetch, publication);
     // A different record may have been opened while the configuration was loading.
     if (!section.isConnected) return;
     content.replaceChildren();
-    appendText(content, row.files.input.sha256
-      ? 'Input configuration matches the SHA-256 recorded in the results JSON. Historical removal experiments may use different inputs.'
-      : 'Current input configuration from the source repository’s main branch. The results JSON does not include an input hash; historical removal experiments may use different inputs.', 'detail-note');
+    appendText(content, 'Input configuration matches this record’s SHA-256. Historical removal experiments may use different inputs.', 'detail-note');
     const launch = config.launch || {};
     const dims = value => Array.isArray(value) ? value.join(' × ') : 'Not recorded';
     const facts = el('dl', 'record-facts');
@@ -316,16 +319,7 @@ function studyDetail(body, row) {
   rawSection(body, 'Complete synchronization study record', row.syncStudy);
 }
 
-function showDetail(row) {
-  openedKernel = row.name;
-  const body = $('detail-body');
-  body.replaceChildren();
-  const heading = el('h2', '', displayName(row.name));
-  heading.id = 'detail-title';
-  body.append(el('span', 'library-tag', libraryOf(row.name)), heading, el('p', 'detail-identifier', row.name));
-  const actions = el('div', 'detail-actions');
-  actions.append(badge(row.result), link('Permalink ↗', pageURL(row.name)));
-  body.append(actions);
+function verificationDetail(body, row, publication) {
   if (row.analysis_scope) appendText(body, 'Conditional analysis: this result applies only to the configured branch decisions below.', 'data-notice');
   const grid = el('div', 'check-grid');
   for (const [key, label] of [['synchronization', 'Synchronization'], ['memory', 'Memory'], ['equivalence', 'Equivalence']]) {
@@ -336,14 +330,14 @@ function showDetail(row) {
   body.append(grid);
   const facts = el('dl', 'record-facts');
   fact(facts, 'Analysis time', formatSeconds(analysisSeconds(row)));
-  fact(facts, 'Native peak memory (RSS)', formatMemory(row.native_peak_rss_mib));
+  fact(facts, 'Peak memory (RSS)', formatMemory(peakMemoryMiB(row)));
   fact(facts, 'Recorded warnings', `${number(row.warning_count)} · ${row.warnings_complete === true ? 'collection complete' : row.warnings_complete === false ? 'collection incomplete' : 'completion not recorded'}`);
   fact(facts, 'Memory analysis', row.memory_analysis_complete === true ? 'Complete' : row.memory_analysis_complete === false ? 'Incomplete' : 'Not recorded');
-  fact(facts, 'Run identifier (UTC)', row.run || 'Not recorded');
-  fact(facts, 'Results source', 'gpu-verifier/sentryward · main');
+  fact(facts, 'Run identifier', row.provenance?.run_id || row.run || publication.run_id || 'Not recorded');
+  fact(facts, 'Source revision', publication.source_revision || 'Not recorded');
+  if (row.verifier_revision) fact(facts, 'Recorded verifier revision', row.verifier_revision);
   body.append(facts);
-  inputDetail(body, row);
-  studyDetail(body, row);
+  inputDetail(body, row, publication);
   if (row.recorded_followup?.analysis || row.recorded_followup?.upstream_references) {
     body.append(el('h3', '', 'Recorded follow-up'));
     if (row.recorded_followup.analysis) appendText(body, row.recorded_followup.analysis.replace(/<br\s*\/?\s*>/gi, '\n\n'), 'followup');
@@ -383,19 +377,60 @@ function showDetail(row) {
   if (row.budgets) rawSection(body, 'Configured resource budgets', row.budgets);
   if (row.additional_completed_run) rawSection(body, 'Additional completed run', row.additional_completed_run);
   body.append(el('h3', '', 'Source files & recorded hashes'));
-  appendText(body, 'Links open the source repository’s main branch. Hashes are shown only when included in the results JSON.', 'detail-note');
+  appendText(body, 'Links are available only when this record includes a fixed source or evidence location and its hash.', 'detail-note');
   const files = el('ul', 'evidence-list');
   for (const [kind, file] of Object.entries(row.files || {})) {
     const item = el('li');
     if (typeof file.path !== 'string') continue;
     let fileURL;
-    try { fileURL = sourceFileURL(file.path); } catch { continue; }
+    try {
+      if (!/^[0-9a-f]{64}$/.test(file.sha256)) throw new Error('Missing file hash.');
+      fileURL = sourceFileURL(file, false, publication, kind === 'report');
+    } catch {
+      item.append(el('span', '', `${kind.replace(/_/g, ' ')}: evidence link unavailable`));
+      files.append(item);
+      continue;
+    }
     item.append(link(`${kind.replace(/_/g, ' ')} ↗`, fileURL), el('small', '', file.path), el('small', '', `SHA-256: ${file.sha256 || 'not recorded'}`));
     files.append(item);
   }
   body.append(files);
   const { syncStudy, ...verificationRecord } = row;
   rawSection(body, 'Complete JSON record', verificationRecord);
+}
+
+function showDetail(row) {
+  openedKernel = row.name;
+  const body = $('detail-body');
+  body.replaceChildren();
+  const heading = el('h2', '', displayName(row.name));
+  heading.id = 'detail-title';
+  body.append(el('span', 'library-tag', libraryOf(row.name)), heading, el('p', 'detail-identifier', row.name));
+  const actions = el('div', 'detail-actions');
+  if (isCurrent(row)) actions.append(badge(row.result));
+  else actions.append(el('span', 'freshness-label', freshnessLabel(row)));
+  actions.append(link('Permalink ↗', pageURL(row.name)));
+  if (row.files?.report) actions.append(link('Read report ↗', sourceFileURL(row.files.report, false, catalog.publication, true)));
+  body.append(actions);
+  if (row.automation) {
+    appendText(body, `${freshnessLabel(row)} for ${catalog.publication.source_revision.slice(0, 7)}.`, 'data-notice');
+    if (row.automation.report_status) appendText(body, `Report: ${row.automation.report_status.replace(/_/g, ' ')}.`, 'detail-note');
+  }
+  if (row.automation?.state === 'failed') body.append(el('h3', '', 'Current execution'));
+  verificationDetail(body, row, catalog.publication);
+  if (row.historical) {
+    const historical = el('section', 'historical-record');
+    historical.append(el('h3', '', 'Previous verification record'), badge(row.historical.result));
+    appendText(historical, 'This result belongs to an earlier record, not the current target.', 'detail-note');
+    verificationDetail(historical, row.historical, {
+      ...catalog.publication,
+      run_id: row.historical.provenance?.run_id,
+      snapshot_id: row.historical.provenance?.snapshot_id,
+      source_revision: row.historical.provenance?.source_revision,
+    });
+    body.append(historical);
+  }
+  studyDetail(body, row);
   const dialog = $('kernel-detail');
   if (!dialog.open) dialog.showModal();
   dialog.scrollTop = 0;
@@ -403,22 +438,31 @@ function showDetail(row) {
 }
 
 function updateProvenance() {
-  $('snapshot-date').textContent = 'Latest results · main';
-  $('corpus-meta').textContent = `${number(rows.length)} configurations · ${new Set(rows.map(r => libraryOf(r.name))).size} libraries`;
+  const publication = catalog.publication;
+  $('snapshot-date').textContent = `Run ${publication.run_id} · ${publication.source_revision.slice(0, 7)}`;
+  $('corpus-meta').textContent = `${number(stats.current)} of ${number(rows.length)} configurations checked for this target · ${new Set(rows.map(r => libraryOf(r.name))).size} libraries`;
+  for (const anchor of document.querySelectorAll('[data-catalog-link]')) {
+    anchor.href = catalogURL(publication, true);
+    anchor.textContent = anchor.classList.contains('download-link') ? 'Download snapshot JSON' : 'View this snapshot JSON';
+  }
   $('conditional-note').textContent = stats.conditional
     ? `${stats.conditional} records specify configured branch scenarios. Their verdicts apply only to those scenarios. Open a marked record to inspect the recorded decisions.`
     : 'The results JSON does not report configured branch scenarios. Consult the input configurations and linked verifier outputs for analysis scope.';
   const provenance = $('provenance');
   provenance.replaceChildren();
   const p = el('p');
-  p.append(document.createTextNode('Loaded directly from '), link('gpu-verifier/sentryward · examples/results.json', RESULTS_PAGE), document.createTextNode(' on each page load. Reload to retrieve the latest results; the page does not run the verifier.'));
+  p.append(document.createTextNode('Published snapshot: '), link(publication.run_id, catalogURL(publication)), document.createTextNode(`. Published ${publication.created_at}. Reload to check for a newer run; the page does not run the verifier.`));
   provenance.append(p);
   const origin = el('p');
-  const path = source.path.split('/').map(encodeURIComponent).join('/');
-  origin.append(document.createTextNode('Verification catalog source: '), link(`${source.repository} @ ${source.revision.slice(0, 7)}`, `${repository}/blob/${source.revision}/${path}`));
+  origin.append(document.createTextNode('Target source: '), link(`${publication.source_repository} @ ${publication.source_revision.slice(0, 7)}`, `${repository}/tree/${publication.source_revision}`));
   provenance.append(origin);
-  appendText(provenance, `Catalog source SHA-256: ${source.sha256}`);
-  provenance.lastChild.style.overflowWrap = 'anywhere';
+  appendText(provenance, 'Current counts include only completed checks or results reused for matching inputs and environment. Deferred, failed, pending and historical records are listed separately. Original verifier identity is not inferred from the publication revision.');
+  if (source) {
+    const path = source.path.split('/').map(encodeURIComponent).join('/');
+    const historical = el('p');
+    historical.append(document.createTextNode('Imported catalog provenance: '), link(`${source.repository} @ ${source.revision.slice(0, 7)}`, `${repository}/blob/${source.revision}/${path}`));
+    provenance.append(historical);
+  }
 }
 
 async function init() {
@@ -476,7 +520,7 @@ async function init() {
     });
   } catch (error) {
     $('snapshot-date').textContent = 'Live results unavailable';
-    $('load-state').textContent = 'The latest results could not be loaded from GitHub. Reload to try again, or open the source JSON above. No saved snapshot is being shown.';
+    $('load-state').textContent = 'The published results snapshot could not be loaded or verified. Reload to try again, or open the publication pointer above. No older snapshot is being substituted.';
     $('load-state').className = 'data-notice';
     $('load-state').setAttribute('role', 'alert');
     console.error('Verification database:', error);
