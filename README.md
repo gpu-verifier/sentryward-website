@@ -38,26 +38,25 @@ Open [the homepage](http://127.0.0.1:8765/), [the technical blog](http://127.0.0
 
 ## Verification database
 
-`/results/` loads [the live results JSON](https://github.com/gpu-verifier/sentryward/blob/main/examples/results.json)
-from `gpu-verifier/sentryward` on every visit or reload, using its public raw URL with
-`cache: 'no-store'`. Changes to that file appear without rebuilding or redeploying the website.
-No token or GitHub API request is required. A fetch or validation failure displays an error;
-the page never falls back to the bundled historical snapshot.
+`/results/` reads [`results/latest.json`](https://github.com/gpu-verifier/sentryward/blob/results/latest.json)
+from `gpu-verifier/sentryward`, then verifies the catalog at
+`runs/<run_id>/<snapshot_id>/results.json` against the pointer's SHA-256 and publication identity.
+Retries keep their scheduling `run_id` and publish a new immutable `snapshot_id` when content changes.
+A missing or invalid snapshot displays an error. Deploy this loader after the first automation
+snapshot is published; it does not fall back to `main` or bundled data.
 
-Search, library/result filters, sorting, pagination (200 records per page), and record permalinks
-run in the browser. The `sentryward.kernel-results.v1` schema contains verdicts, diagnostics,
-source-file paths, analysis times, and optional synchronization-removal measurements. The table,
-kernel details, and time sorting use `analysis_time_seconds` in seconds (`elapsed_seconds` is
-supported for historical records). Summary counts are validated against the records.
-Missing analysis times, per-check outcomes, input hashes,
-and other optional fields remain “Not recorded”; they are not inferred from the verdict or
-copied from old records. `equivalence_not_proven` is an inconclusive outcome.
+Current counts include only completed (`current`) or matching reused (`reused`) results.
+Pending, deferred and failed executions remain visible without counting their previous verdicts.
+Details show the current execution and any nested historical record separately, including each
+record's checks, diagnostics and source identity. Missing values remain **Not recorded**.
+Search includes historical diagnostics; verdict and outcome-group filters apply to current results.
 
-Kernel records fetch their input configuration from the code repository's `main` branch when
-opened, displaying launch dimensions, TMA shapes, arguments, and full JSON. If the results include
-an input hash it is verified before display; otherwise the UI identifies the configuration as
-the current repository input, without claiming it is the exact analyzed version. File links also
-point to `main`. Catalog and experiment provenance come from the live JSON.
+Source files use fixed Git commits. Generated evidence uses the snapshot's HTTPS storage prefix;
+input bytes are hash-checked before display. Reports open GitHub's Markdown renderer at
+`runs/<run_id>/<snapshot_id>/reports/<kernel>/report.md`. Historical links use their original
+record identity; imported records without a fixed version or hash remain readable but their
+file links are unavailable. Storage reads must permit the site's origin through CORS and use
+stable URLs without redirects or signed query parameters.
 
 Run the database checks with:
 
@@ -66,13 +65,10 @@ node --test tests/*.test.mjs
 python3 -m unittest discover -s tests -p "test_*.py"
 ```
 
-Preview checks: filter by library and verdict, switch synchronization scenarios, search and sort,
-open a kernel record, inspect its input, close with Escape, and reload its permalink. Check the
-empty state and mobile table scrolling. The source JSON link remains available if loading fails.
-
-The files in `data/` and `scripts/update-verification-results.py` preserve the earlier snapshot
-and its import tooling for historical reference and regression tests. They are not loaded by the
-live results page and do not need to be refreshed to publish new upstream results.
+Preview filtering, synchronization scenarios, kernel details, input loading, permalinks and
+mobile scrolling. The pointer JSON link remains available if loading fails. The files in `data/`
+and `scripts/update-verification-results.py` preserve the earlier import tooling and snapshots;
+the live page does not read them.
 
 ### Synchronization removal and kernel performance
 
@@ -126,12 +122,13 @@ page cross-origin isolated.
 - `css/site.css`: shared navigation, homepage, and blog layouts.
 - `results/index.html`, `css/results.css`: verification database page and responsive layout.
 - `js/results.mjs`, `js/results-model.mjs`: database UI, filtering, and data validation.
-- `js/results-source.mjs`: live catalog, embedded study, and input loading.
+- `js/results-source.mjs`: publication pointer, checksum-bound catalog, embedded study, and pinned input loading.
 - `data/`: historical verification snapshot, input configurations, provenance, and synchronization study (not used by the live page).
 - `js/kernel-inputs.mjs`, `scripts/kernel_inputs.py`: input hash verification and import.
 - `js/sync-removal.mjs`, `scripts/sync_removal.py`: study validation, display semantics, and import.
 - `scripts/update-verification-results.py`: authenticated, validated snapshot refresh.
-- `tests/results-source.test.mjs`: live schema, freshness, failure handling, studies, and input loading.
+- `tests/results-source.test.mjs`: snapshot identity, freshness, failure handling, studies, and input loading.
+- `tests/results-detail.test.mjs`: current and historical detail rendering, including source and report links.
 - `tests/results-model.test.mjs`: historical snapshot integrity and query behavior checks.
 - `tests/home-examples.test.mjs`: bundled example lines, marks, and recorded witnesses match the PTX fixtures.
 - `js/anim.js`: figure helpers and animation runtime.
