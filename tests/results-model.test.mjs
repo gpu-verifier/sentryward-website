@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { validateSnapshot, summarize, filterRows, libraryOf, formatSeconds, formatMemory } from '../js/results-model.mjs';
+import { validateSnapshot, summarize, filterRows, libraryOf, peakMemoryMiB, formatSeconds, formatMemory } from '../js/results-model.mjs';
 
 const raw = await readFile(new URL('../data/kernel-verification-results.json', import.meta.url));
 const snapshot = JSON.parse(raw);
@@ -57,4 +57,19 @@ test('numeric sorting puts absent measurements last and breaks ties by name', ()
   assert.equal(formatSeconds(null), 'Not recorded');
   assert.equal(formatMemory(undefined), 'Not recorded');
   assert.equal(formatSeconds(0), '0.00 s');
+});
+
+test('memory display and sorting accept automated and historical measurements', () => {
+  const rows = [
+    { name: 'missing', result: 'unsupported' },
+    { name: 'legacy', result: 'verified', native_peak_rss_mib: 512 },
+    { name: 'automated', result: 'potential_race', peak_rss_mib: 1024 },
+    { name: 'zero', result: 'verified', peak_rss_mib: 0 },
+  ];
+  assert.deepEqual(filterRows(rows, { sort: 'memory' }).map(row => row.name), ['automated', 'legacy', 'zero', 'missing']);
+  assert.equal(formatMemory(peakMemoryMiB(rows[2])), '1,024 MiB');
+  assert.equal(peakMemoryMiB({ peak_rss_mib: 128, native_peak_rss_mib: 512 }), 128);
+  assert.equal(peakMemoryMiB({ peak_rss_mib: null, native_peak_rss_mib: 512 }), null);
+  assert.equal(peakMemoryMiB({ peak_rss_mib: -1 }), null);
+  assert.equal(peakMemoryMiB({ peak_rss_mib: '512' }), null);
 });

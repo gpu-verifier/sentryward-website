@@ -13,7 +13,7 @@
 <link rel="stylesheet" href="../css/style.css">
 <link rel="stylesheet" href="../css/site.css?v=20261015-workflows5">
 <link rel="stylesheet" href="../css/results.css">
-<script type="module" src="../js/results.mjs?v=20261015-analysis-time"></script>
+<script type="module" src="../js/results.mjs?v=20261021-snapshots"></script>
 </head>
 <body class="results-page">
 <a class="skip-link" href="#main">Skip to content</a>
@@ -27,12 +27,12 @@
       <h1 id="page-title">Verification results</h1>
       <p class="database-intro">Recorded GPU kernel checks and synchronization-removal measurements.</p>
     </div>
-    <a class="download-link" href="https://raw.githubusercontent.com/gpu-verifier/sentryward/main/examples/results.json" download>Download JSON</a>
+    <a class="download-link" data-catalog-link href="https://raw.githubusercontent.com/gpu-verifier/sentryward/results/latest.json" download>Publication pointer JSON</a>
   </section>
 
   <div class="snapshot-line"><span id="snapshot-date">Loading latest results…</span><span id="corpus-meta"></span><a href="#about-data">About the data</a></div>
   <p id="load-state" role="status">Loading verification results…</p>
-  <noscript><p class="data-notice">Enable JavaScript to search and inspect the database, or <a href="https://raw.githubusercontent.com/gpu-verifier/sentryward/main/examples/results.json">read the live results JSON</a>.</p></noscript>
+  <noscript><p class="data-notice">Enable JavaScript to search and inspect the database, or <a href="https://raw.githubusercontent.com/gpu-verifier/sentryward/results/latest.json">read the publication pointer JSON</a>.</p></noscript>
 
   <nav id="overview" class="overview" aria-label="Filter by result group" hidden>
     <div class="result-groups" id="result-groups"></div>
@@ -67,10 +67,10 @@
   <section class="data-notes" id="about-data" aria-labelledby="data-title">
     <div><h2 id="data-title">About the data</h2><p>A verdict applies to the recorded input configuration and the verifier’s model. It is not a claim about every shape, execution environment, or version of a library.</p><a href="../blog/#how-it-works">How verification works</a></div>
     <div class="notes-list">
-      <details id="sync-methodology"><summary>Synchronization-removal methodology</summary><p>“Removable syncs” counts synchronization sites removed together while the reduced kernel still passed race-freedom verification. Kernel timing is measured on an NVIDIA B200. “Faster” and “slower” describe runtime changes relative to the original kernel, not throughput speedups. Missing values remain distinct from measured zero or no measurable change.</p><div id="study-methodology"></div><p id="study-provenance"></p><p><a href="https://raw.githubusercontent.com/gpu-verifier/sentryward/main/examples/results.json">View JSON with synchronization measurements</a></p></details>
-      <details><summary>Verification outcomes</summary><p><strong>Verified</strong> records passed synchronization, memory, and reference-equivalence checks. <strong>Reported findings</strong> groups potential races, invalid lifecycles, and inconsistent synchronization; these are verifier findings, not necessarily reproduced hardware failures. <strong>Inconclusive</strong> groups unsupported analyses and time, memory, or analysis limits.</p><p>Per-check outcomes and analysis statistics appear when supplied by the results JSON. Missing fields are labeled “Not recorded”; “Not run” and “Incomplete” do not mean passed. Each record links to its verifier output for further detail.</p></details>
+      <details id="sync-methodology"><summary>Synchronization-removal methodology</summary><p>“Removable syncs” counts synchronization sites removed together while the reduced kernel still passed race-freedom verification. Kernel timing is measured on an NVIDIA B200. “Faster” and “slower” describe runtime changes relative to the original kernel, not throughput speedups. Missing values remain distinct from measured zero or no measurable change.</p><div id="study-methodology"></div><p id="study-provenance"></p><p><a data-catalog-link href="https://raw.githubusercontent.com/gpu-verifier/sentryward/results/latest.json">Publication pointer JSON</a></p></details>
+      <details><summary>Verification outcomes</summary><p><strong>Current passes</strong> includes verified records and synchronization/memory checks reported as race_free. Open a record to inspect whether reference equivalence was requested. <strong>Current findings</strong> groups potential races, invalid lifecycles, and inconsistent synchronization; these are verifier findings, not necessarily reproduced hardware failures. <strong>Current inconclusive</strong> groups unsupported analyses and time, memory, or analysis limits.</p><p>Per-check outcomes and analysis statistics appear when supplied by the results JSON. Missing fields are labeled “Not recorded”; “Not run” and “Incomplete” do not mean passed. Each record links to its verifier output for further detail.</p></details>
       <details><summary>Conditional analyses</summary><p id="conditional-note">Some records use configured branch decisions. Their verdicts apply only to those scenarios. Open a marked record to see every recorded branch decision.</p><p>Warnings and their collection status are reported independently of the overall verdict.</p></details>
-      <details><summary>Source and provenance</summary><div id="provenance"><p>This page loads the latest results directly from gpu-verifier/sentryward on each visit. Reload to refresh.</p></div><p>Kernel records load input configurations from the source repository’s main branch. The results JSON may omit per-check outcomes, analysis times, input hashes, or analysis scope; missing values are not filled from an older snapshot.</p></details>
+      <details><summary>Source and provenance</summary><div id="provenance"><p>This page reads the latest published run from gpu-verifier/sentryward, verifies the snapshot hash, and keeps every record bound to that run. Reload to check for a newer publication.</p></div><p>Each published snapshot binds its inputs, source files, reports and evidence to recorded versions and hashes. Deferred or historical results are not counted as checks of the current target. Missing fields are not filled from an older run.</p></details>
     </div>
   </section>
 </main>
