@@ -1,6 +1,6 @@
-import { VERDICTS, libraryOf, displayName, summarize, filterRows, resultLabel, analysisSeconds, formatSeconds, formatMemory } from './results-model.mjs?v=20261015-analysis-time';
+import { VERDICTS, libraryOf, displayName, summarize, filterRows, resultLabel, analysisSeconds, formatSeconds, formatMemory } from './results-model.mjs?v=20261106-undefined-behavior';
 
-import { REPOSITORY, RESULTS_PAGE, loadResults, embeddedStudy, sourceFileURL, loadInputConfig } from './results-source.mjs?v=20261015-analysis-time';
+import { REPOSITORY, RESULTS_PAGE, loadResults, embeddedStudy, sourceFileURL, loadInputConfig } from './results-source.mjs?v=20261106-undefined-behavior';
 
 import { SCENARIOS, removalLabel, performanceLabel, runtimeReduction, summarizeStudy } from './sync-removal.mjs';
 

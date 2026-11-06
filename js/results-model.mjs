@@ -5,6 +5,7 @@ export const VERDICTS = {
   potential_race: { label: 'Potential race', group: 'findings' },
   invalid_lifecycle: { label: 'Invalid lifecycle', group: 'findings' },
   not_wellsynced: { label: 'Not well-synchronized', group: 'findings' },
+  undefined_behavior: { label: 'Undefined behavior', group: 'findings' },
   unsupported: { label: 'Unsupported', group: 'inconclusive' },
   equivalence_not_proven: { label: 'Equivalence not proven', group: 'inconclusive' },
   memory_budget_exceeded: { label: 'Memory limit', group: 'inconclusive' },

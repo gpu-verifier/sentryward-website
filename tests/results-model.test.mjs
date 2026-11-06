@@ -21,12 +21,12 @@ test('invalid snapshots cannot silently produce misleading totals', () => {
 });
 
 test('summary preserves incomplete analyses separately from reported findings', () => {
-  const rows = ['verified', 'potential_race', 'invalid_lifecycle', 'not_wellsynced', 'unsupported',
+  const rows = ['verified', 'potential_race', 'invalid_lifecycle', 'not_wellsynced', 'undefined_behavior', 'unsupported',
     'timeout', 'memory_budget_exceeded', 'analysis_budget_exceeded', 'future_verdict'].map(result => ({ result }));
   const stats = summarize(rows);
-  assert.equal(stats.total, 9);
+  assert.equal(stats.total, 10);
   assert.equal(stats.verified, 1);
-  assert.equal(stats.findings, 3);
+  assert.equal(stats.findings, 4);
   assert.equal(stats.inconclusive, 4);
   assert.equal(stats.other, 1);
 });

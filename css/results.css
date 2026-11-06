@@ -57,7 +57,7 @@
 .scope-tag { color: #7b6135; font-size: 11px; }
 .verdict-badge { color: #596576; font-size: 12px; }
 .tone-verified, .tone-race_free { color: #286653; }
-.tone-potential_race, .tone-invalid_lifecycle, .tone-not_wellsynced { color: #905c27; }
+.tone-potential_race, .tone-invalid_lifecycle, .tone-not_wellsynced, .tone-undefined_behavior { color: #905c27; }
 .check { color: var(--muted); font-size: 12px; white-space: nowrap; }
 .check-passed { color: #286653; }
 .check-failed { color: #905c27; }
