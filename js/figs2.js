@@ -13,38 +13,38 @@
   var NODES = [
     ['i1', 0, 0, 'init `full`'],
     ['i2', 0, 1, 'init `mma_done`'],
-    ['sync', 5.5, 2.1, '`syncthreads`: one join event for all 128 threads', 'ev', 13.6],
+    ['sync', 5.5, 2.1, S.t('`syncthreads`: one join event for all 128 threads'), 'ev', 13.6],
     ['ae', 0, 3.2, 'arrive.expect_tx 32 KB'],
-    ['qa', 0, 4.2, 'tma A (issue)'],
-    ['qb', 0, 5.2, 'tma B (issue)'],
-    ['la', 2.65, 4.2, 'copy sA ← A', 'hw', 2.1],
+    ['qa', 0, 4.2, S.t('tma A (issue)')],
+    ['qb', 0, 5.2, S.t('tma B (issue)')],
+    ['la', 2.65, 4.2, S.t('copy sA ← A'), 'hw', 2.1],
     ['ca', 2.65, 5.2, 'complete_tx 16 KB', 'hw', 2.1],
-    ['lb', 2.65, 6.2, 'copy sB ← B', 'hw', 2.1],
+    ['lb', 2.65, 6.2, S.t('copy sB ← B'), 'hw', 2.1],
     ['cb', 2.65, 7.2, 'complete_tx 16 KB', 'hw', 2.1],
-    ['vi0', 0, 7.2, 'wait `mma_done` (issue)'],
-    ['wi', 5.45, 3.2, 'wait `full` (issue)'],
-    ['wr', 5.45, 8.2, 'wait `full` (return)'],
-    ['mi', 5.45, 9.3, 'mma (issue)'],
-    ['ki', 5.45, 10.5, 'commit (issue)'],
-    ['vi32', 5.45, 11.5, 'wait `mma_done` (issue)'],
-    ['mx', 8.15, 9.3, 'mma (execute)\nacc ← sA · sB', 'hw', 2.2],
+    ['vi0', 0, 7.2, S.t('wait `mma_done` (issue)')],
+    ['wi', 5.45, 3.2, S.t('wait `full` (issue)')],
+    ['wr', 5.45, 8.2, S.t('wait `full` (return)')],
+    ['mi', 5.45, 9.3, S.t('mma (issue)')],
+    ['ki', 5.45, 10.5, S.t('commit (issue)')],
+    ['vi32', 5.45, 11.5, S.t('wait `mma_done` (issue)')],
+    ['mx', 8.15, 9.3, S.t('mma (execute)\nacc ← sA · sB'), 'hw', 2.2],
     ['ka', 8.15, 10.5, 'arrive `mma_done`', 'hw', 2.2],
-    ['vit', 11.0, 3.2, 'wait `mma_done` (issue)'],
-    ['vr0', 0, 13.5, 'wait `mma_done` (return)'],
-    ['vr32', 5.45, 13.5, 'wait `mma_done` (return)'],
-    ['vrt', 11.0, 13.5, 'wait `mma_done` (return)'],
-    ['ri0', 0, 14.5, 'tcgen05.ld (issue)'],
-    ['rw0', 0, 15.8, 'wait::ld (return)'],
-    ['st0', 0, 16.8, 'store *C*[0, :]'],
-    ['rc0', 2.65, 14.5, 'read acc[0, :]\n(execute)', 'hw', 2.1],
-    ['ri32', 5.45, 14.75, 'tcgen05.ld (issue)'],
-    ['rw32', 5.45, 15.75, 'wait::ld (return)'],
-    ['st32', 5.45, 16.75, 'store *C*[32, :]'],
-    ['rc32', 8.15, 15.75, 'read acc[32, :]\n(execute)', 'hw', 2.2],
-    ['rit', 11.0, 14.5, 'tcgen05.ld (issue)'],
-    ['rwt', 11.0, 15.8, 'wait::ld (return)'],
-    ['stt', 11.0, 16.8, 'store *C*[*t*, :]'],
-    ['rct', 8.15, 14.5, 'read acc[*t*, :]\n(execute)', 'hw', 2.2],
+    ['vit', 11.0, 3.2, S.t('wait `mma_done` (issue)')],
+    ['vr0', 0, 13.5, S.t('wait `mma_done` (return)')],
+    ['vr32', 5.45, 13.5, S.t('wait `mma_done` (return)')],
+    ['vrt', 11.0, 13.5, S.t('wait `mma_done` (return)')],
+    ['ri0', 0, 14.5, S.t('tcgen05.ld (issue)')],
+    ['rw0', 0, 15.8, S.t('wait::ld (return)')],
+    ['st0', 0, 16.8, S.t('store *C*[0, :]')],
+    ['rc0', 2.65, 14.5, S.t('read acc[0, :]\n(execute)'), 'hw', 2.1],
+    ['ri32', 5.45, 14.75, S.t('tcgen05.ld (issue)')],
+    ['rw32', 5.45, 15.75, S.t('wait::ld (return)')],
+    ['st32', 5.45, 16.75, S.t('store *C*[32, :]')],
+    ['rc32', 8.15, 15.75, S.t('read acc[32, :]\n(execute)'), 'hw', 2.2],
+    ['rit', 11.0, 14.5, S.t('tcgen05.ld (issue)')],
+    ['rwt', 11.0, 15.8, S.t('wait::ld (return)')],
+    ['stt', 11.0, 16.8, S.t('store *C*[*t*, :]')],
+    ['rct', 8.15, 14.5, S.t('read acc[*t*, :]\n(execute)'), 'hw', 2.2],
     ['ef', 5.45, 5.9, 'end(`full`, 0)', 'ph', 2.6],
     ['ed', 8.15, 12.5, 'end(`mma_done`, 0)', 'ph', 2.2]
   ];
@@ -101,9 +101,9 @@
     var gEB = opts.toggle ? S.el('g', { 'class': 'only-b' }, svg) : null;
     var gN = S.el('g', null, svg);
     var gNC = opts.toggle ? S.el('g', { 'class': 'only-c' }, svg) : gN;
-    S.text(svg, X(1.2), Y(-0.95), 'thread 0', { fs: 12, cls: 'role' });
-    S.text(svg, X(6.7), Y(-0.95), 'thread 32', { fs: 12, cls: 'role' });
-    S.text(svg, X(11.0), Y(-0.95), 'thread *t* ∉ {0, 32}', { fs: 12, cls: 'role' });
+    S.text(svg, X(1.2), Y(-0.95), S.t('thread 0'), { fs: 12, cls: 'role' });
+    S.text(svg, X(6.7), Y(-0.95), S.t('thread 32'), { fs: 12, cls: 'role' });
+    S.text(svg, X(11.0), Y(-0.95), S.t('thread *t* ∉ {0, 32}'), { fs: 12, cls: 'role' });
     var nodes = {}, edges = [];
     Object.keys(G).forEach(function (id) {
       var n = G[id];
@@ -130,7 +130,7 @@
   // ---------- Figure 4: the event graph (static) ----------
   S.figs['event-graph'] = function (host) {
     var stage = S.div('anim-stage', S.div('anim static', host));
-    var svg = S.el('svg', { viewBox: '0 0 946 680', role: 'img', 'aria-label': 'The event graph of the running example: events of thread 0, thread 32, and any other thread t, with program-order edges.' }, stage);
+    var svg = S.el('svg', { viewBox: '0 0 946 680', role: 'img', 'aria-label': S.t('The event graph of the running example: events of thread 0, thread 32, and any other thread t, with program-order edges.') }, stage);
     svg.style.minWidth = '760px';
     drawGraph(svg, {});
   };
@@ -141,7 +141,7 @@
     var seg = S.div('seg', S.div('kswitch', host)), btns = {};
     seg.setAttribute('role', 'group');
     seg.setAttribute('aria-label', 'Kernel');
-    [['correct', 'Correct kernel'], ['buggy', 'Buggy kernel']].forEach(function (m) {
+    [['correct', S.t('Correct kernel')], ['buggy', S.t('Buggy kernel')]].forEach(function (m) {
       var b = document.createElement('button');
       b.type = 'button';
       b.className = m[0];
@@ -165,11 +165,11 @@
     var BOX = { correct: { mx: 'on', ka: 'on', vrt: 'on', rit: 'on', rct: 'on' }, buggy: { mx: 'bad', ka: 'on', rct: 'bad' } };
     var select = kernelSwitch(host, paint);
     var stage = S.div('anim-stage', S.div('anim static', host));
-    var svg = S.el('svg', { viewBox: '0 0 946 680', role: 'img', 'class': 'hbfig', 'aria-label': 'The happens-before graph of the correct or the buggy kernel: completion vertices and synchronization edges added to the event graph.' }, stage);
+    var svg = S.el('svg', { viewBox: '0 0 946 680', role: 'img', 'class': 'hbfig', 'aria-label': S.t('The happens-before graph of the correct or the buggy kernel: completion vertices and synchronization edges added to the event graph.') }, stage);
     svg.style.minWidth = '760px';
     var D = drawGraph(svg, { phases: true, faintPO: true, toggle: true });
     var note = S.el('g', { 'class': 'only-b' }, svg);
-    S.text(note, G.ed.x, G.ed.y + G.ed.h / 2 + 19, 'no wait targets this phase', { fs: 11.5, cls: 'badtext' });
+    S.text(note, G.ed.x, G.ed.y + G.ed.h / 2 + 19, S.t('no wait targets this phase'), { fs: 11.5, cls: 'badtext' });
     function paint(mode) {
       var p = PATH[mode], box = BOX[mode];
       svg.classList.toggle('buggy', mode === 'buggy');
@@ -189,7 +189,7 @@
     function XB(x) { return 590 + x * K; }
     function YY(y) { return 50 + y * K; }
     var stage = S.div('anim-stage', S.div('anim static', host));
-    var svg = S.el('svg', { viewBox: '0 0 930 300', role: 'img', 'aria-label': 'The updates to barrier full in phase 0: with separate announcements, the first announcement and the arrival of copy A can complete the phase early; in the correct kernel, only all three updates together complete it.' }, stage);
+    var svg = S.el('svg', { viewBox: '0 0 930 300', role: 'img', 'aria-label': S.t('The updates to barrier full in phase 0: with separate announcements, the first announcement and the arrival of copy A can complete the phase early; in the correct kernel, only all three updates together complete it.') }, stage);
     svg.style.minWidth = '720px';
     function card(x, y, w, s, cls) {
       S.box(svg, x, y, w, H, 'box' + (cls ? ' ' + cls : ''), 3);
@@ -200,22 +200,22 @@
     var W = 3.0 * K;
     card(XA(0), YY(0), W, '`arrive.expect_tx` 16 KB', 'bad');
     card(XA(0), YY(1.4), W, '`expect_tx` 16 KB', 'omit');
-    card(XA(0), YY(2.8), W, 'copy B: `complete_tx` 16 KB', 'omit');
-    card(XA(3.5), YY(1.4), W, 'copy A: `complete_tx` 16 KB', 'bad');
+    card(XA(0), YY(2.8), W, S.t('copy B: `complete_tx` 16 KB'), 'omit');
+    card(XA(3.5), YY(1.4), W, S.t('copy A: `complete_tx` 16 KB'), 'bad');
     arrow([[XA(0), YY(0) + H / 2], [XA(0), YY(1.4) - H / 2]]);
     arrow([[XA(0), YY(1.4) + H / 2], [XA(0), YY(2.8) - H / 2]]);
     arrow([[XA(0) + W / 2, YY(0)], [XA(3.5), YY(0)], [XA(3.5), YY(1.4) - H / 2]]);
-    S.text(svg, XA(1.9), YY(2.35), 'Announce A, then copy A completes:\n(1, 0) \u2192 (0, 16 KB) \u2192 (0, 0)\nphase 0 completes early', { fs: 12, lh: 1.3, valign: 'top', anchor: 'start', cls: 'badtext' });
-    S.text(svg, XA(1.75), YY(3.75), '(a) Separate announcements', { fs: 12, cls: 'muted' });
+    S.text(svg, XA(1.9), YY(2.35), S.t('Announce A, then copy A completes:\n(1, 0) \u2192 (0, 16 KB) \u2192 (0, 0)\nphase 0 completes early'), { fs: 12, lh: 1.3, valign: 'top', anchor: 'start', cls: 'badtext' });
+    S.text(svg, XA(1.75), YY(3.75), S.t('(a) Separate announcements'), { fs: 12, cls: 'muted' });
     // (b) Correct kernel: the announcement always comes first, so only the complete phase reaches (0, 0).
     var WB = 2.6 * K, yb = YY(0) + H / 2 + 0.3 * K;
     card(XB(1.45), YY(0), WB, '`arrive.expect_tx` 32 KB');
-    card(XB(0), YY(1.4), WB, 'copy A: `complete_tx` 16 KB');
-    card(XB(2.9), YY(1.4), WB, 'copy B: `complete_tx` 16 KB');
+    card(XB(0), YY(1.4), WB, S.t('copy A: `complete_tx` 16 KB'));
+    card(XB(2.9), YY(1.4), WB, S.t('copy B: `complete_tx` 16 KB'));
     arrow([[XB(1.45), YY(0) + H / 2], [XB(1.45), yb], [XB(0), yb], [XB(0), YY(1.4) - H / 2]]);
     arrow([[XB(1.45), yb], [XB(2.9), yb], [XB(2.9), YY(1.4) - H / 2]]);
-    S.text(svg, XB(1.45), YY(2.35), 'The announcement always comes first:\n(1, 0) \u2192 (0, 32 KB) \u2192 (0, 16 KB) \u2192 (0, 0)\nonly the complete phase reaches (0, 0)', { fs: 12, lh: 1.3, valign: 'top', cls: 'goodtext' });
-    S.text(svg, XB(1.45), YY(3.75), '(b) Correct kernel', { fs: 12, cls: 'muted' });
+    S.text(svg, XB(1.45), YY(2.35), S.t('The announcement always comes first:\n(1, 0) \u2192 (0, 32 KB) \u2192 (0, 16 KB) \u2192 (0, 0)\nonly the complete phase reaches (0, 0)'), { fs: 12, lh: 1.3, valign: 'top', cls: 'goodtext' });
+    S.text(svg, XB(1.45), YY(3.75), S.t('(b) Correct kernel'), { fs: 12, cls: 'muted' });
   };
 
   // ---------- Figure 7: the two views of the MMA and one epilogue thread, and the race ----------
@@ -227,17 +227,17 @@
     function Y(y) { return 24 + (1.55 - y) * 64; }
     var select = kernelSwitch(host, paint);
     var stage = S.div('anim-stage', S.div('anim static', host));
-    var svg = S.el('svg', { viewBox: '0 0 940 345', role: 'img', 'aria-label': 'The event view and the value view of the MMA and one epilogue thread: ordered in the correct kernel, a race on acc in the buggy kernel.' }, stage);
+    var svg = S.el('svg', { viewBox: '0 0 940 345', role: 'img', 'aria-label': S.t('The event view and the value view of the MMA and one epilogue thread: ordered in the correct kernel, a race on acc in the buggy kernel.') }, stage);
     svg.style.minWidth = '740px';
-    S.text(svg, X(-1.245), Y(0), 'event view', { fs: 11.5, cls: 'muted bold' }).setAttribute('transform', 'rotate(-90 ' + X(-1.245) + ' ' + Y(0) + ')');
-    S.text(svg, X(-1.245), Y(-2.45), 'value view', { fs: 11.5, cls: 'muted bold' }).setAttribute('transform', 'rotate(-90 ' + X(-1.245) + ' ' + Y(-2.45) + ')');
+    S.text(svg, X(-1.245), Y(0), S.t('event view'), { fs: 11.5, cls: 'muted bold' }).setAttribute('transform', 'rotate(-90 ' + X(-1.245) + ' ' + Y(0) + ')');
+    S.text(svg, X(-1.245), Y(-2.45), S.t('value view'), { fs: 11.5, cls: 'muted bold' }).setAttribute('transform', 'rotate(-90 ' + X(-1.245) + ' ' + Y(-2.45) + ')');
     S.el('path', { d: S.path([[X(-1.05), Y(-1.2)], [X(12.4), Y(-1.2)]]), 'class': 'sep' }, svg);
-    S.text(svg, X(1.025), Y(1.25), 'MMA (thread 32 and tensor core)', { fs: 12, cls: 'role' });
-    S.text(svg, X(8.375), Y(1.25), 'epilogue (thread *t*)', { fs: 12, cls: 'role' });
+    S.text(svg, X(1.025), Y(1.25), S.t('MMA (thread 32 and tensor core)'), { fs: 12, cls: 'role' });
+    S.text(svg, X(8.375), Y(1.25), S.t('epilogue (thread *t*)'), { fs: 12, cls: 'role' });
     // Event view.
     var ev = {}, ew = 1.85 * K, eh = 46;
-    [['mi', 0, 'mma\n(issue)'], ['mx', 2.05, 'mma\n(execute)', 'hw'], ['ri', 5.3, 'tcgen05.ld\n(issue)'],
-     ['rc', 7.35, 'tcgen05.ld\n(execute)', 'hw'], ['rw', 9.4, 'wait::ld\n(return)'], ['st', 11.45, 'store\n*C*[*t*, :]']].forEach(function (n) {
+    [['mi', 0, S.t('mma\n(issue)')], ['mx', 2.05, S.t('mma\n(execute)'), 'hw'], ['ri', 5.3, S.t('tcgen05.ld\n(issue)')],
+     ['rc', 7.35, S.t('tcgen05.ld\n(execute)'), 'hw'], ['rw', 9.4, S.t('wait::ld\n(return)')], ['st', 11.45, S.t('store\n*C*[*t*, :]')]].forEach(function (n) {
       var cls = n[3] === 'hw' ? 'box hw' : 'box';
       var r = S.box(svg, X(n[1]), Y(0), ew, eh, cls, 3);
       S.text(svg, X(n[1]), Y(0), n[2], { fs: 11.5 });
@@ -255,7 +255,7 @@
     var hb = S.el('path', { d: S.path(hbPts), 'class': 'ln hb' }, svg);
     var gone = S.el('path', { d: S.path(hbPts), 'class': 'ln gone' }, svg);
     var hbx = (hbPts[0][0] + hbPts[1][0]) / 2;
-    var hbLab = S.text(svg, hbx, Y(0) - 7, '→_{hb} via\n`mma_done`', { fs: 11.5, cls: 'hbtext', valign: 'bottom' });
+    var hbLab = S.text(svg, hbx, Y(0) - 7, S.t('→_{hb} via\n`mma_done`'), { fs: 11.5, cls: 'hbtext', valign: 'bottom' });
     var cross = S.el('path', { d: 'M' + (hbx - 7) + ',' + (Y(0) - 7) + ' L' + (hbx + 7) + ',' + (Y(0) + 7) + ' M' + (hbx + 7) + ',' + (Y(0) - 7) + ' L' + (hbx - 7) + ',' + (Y(0) + 7), 'class': 'xmark' }, svg);
     // Value view.
     var ops = {};
@@ -266,12 +266,12 @@
       S.text(svg, X(x), Y(y), label, { fs: 11.5 });
       ops[id] = { r: r, x: X(x), y: Y(y), w: w, h: 30, cls: cls };
     }
-    op('la', 0.35, -1.95, 'load `sA`', true);
-    op('lb', 1.7, -1.95, 'load `sB`', true);
+    op('la', 0.35, -1.95, S.t('load `sA`'), true);
+    op('lb', 1.7, -1.95, S.t('load `sB`'), true);
     op('mm', 1.025, -2.95, '`matmul`', false);
-    op('sacc', 3.0, -2.95, 'store `acc`', true);
-    op('lr', 7.35, -1.95, 'load row *t* of `acc`', true);
-    op('sr', 11.45, -1.95, 'store row *t* of *C*', true);
+    op('sacc', 3.0, -2.95, S.t('store `acc`'), true);
+    op('lr', 7.35, -1.95, S.t('load row *t* of `acc`'), true);
+    op('sr', 11.45, -1.95, S.t('store row *t* of *C*'), true);
     [
       [S.anchor(ops.la, 's'), S.anchor(ops.mm, 'n')],
       [S.anchor(ops.lb, 's'), S.anchor(ops.mm, 'n')],
@@ -287,10 +287,10 @@
       [S.anchor(ops.lr, 'n'), [ev.rc.x, mxs[1] + 1]],
       [S.anchor(ops.sr, 'n'), [ev.st.x, mxs[1] + 1]]
     ].forEach(function (pts) { S.el('path', { d: S.path(pts), 'class': 'ln link' }, svg); });
-    S.text(svg, ev.rc.x + 8, Y(-0.82), 'performed by', { fs: 11, cls: 'goodtext', anchor: 'start' });
+    S.text(svg, ev.rc.x + 8, Y(-0.82), S.t('performed by'), { fs: 11, cls: 'goodtext', anchor: 'start' });
     // The race: the store to acc and the load of row t, unordered in the buggy kernel.
     var raceLn = S.el('path', { d: S.path([S.anchor(ops.sacc, 'e'), S.anchor(ops.lr, 'w')]), 'class': 'ln race' }, svg);
-    var raceLab = S.text(svg, X(5.15), Y(-2.85), 'race on `acc`', { fs: 12.5, cls: 'badtext bold' });
+    var raceLab = S.text(svg, X(5.15), Y(-2.85), S.t('race on `acc`'), { fs: 12.5, cls: 'badtext bold' });
     function paint(mode) {
       var buggy = mode === 'buggy';
       S.show(hb, buggy ? 0 : 1);

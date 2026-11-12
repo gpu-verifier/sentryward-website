@@ -4,28 +4,32 @@
 (function () {
   'use strict';
 
+  // Translates English text into the page's language; see js/i18n/ and SW.t in anim.js.
+  var DICT = (window.SW_I18N || {})[document.documentElement.lang] || {};
+  function t(en) { return Object.prototype.hasOwnProperty.call(DICT, en) ? DICT[en] : en; }
+
   // What each operation does, in one short sentence for readers who do not know PTX. Keys are
   // the names as the code blocks write them.
   var OPS = {
-    'init': 'Initializes a barrier with the given number of pending arrivals and zero pending bytes.',
-    'syncthreads': 'Blocks each thread until all threads in the block reach this point.',
-    'arrive.expect_tx': 'Adds the given number of bytes to the barrier’s pending bytes, then decrements its pending arrivals by one.',
-    'expect_tx': 'Adds the given number of bytes to the barrier’s pending bytes.',
-    'arrive': 'Decrements the barrier’s pending arrivals by one.',
-    'wait': 'Blocks until the barrier completes the given phase. A phase completes when both of its counts reach zero.',
-    'tma_load': 'Issues an asynchronous copy of a tile into shared memory. On completion, the copied bytes are subtracted from the barrier’s pending bytes.',
-    'cp.async': 'Issues an asynchronous copy of data into shared memory.',
-    'tcgen05.mma': 'Issues an asynchronous matrix multiplication on the tensor core.',
-    'tcgen05.commit': 'Decrements the barrier’s pending arrivals by one once all tensor-core operations previously issued by this thread have completed.',
-    'tcgen05.ld': 'Issues an asynchronous load from tensor memory into registers.',
-    'tcgen05.wait::ld': 'Blocks until all outstanding tensor-memory loads of this thread have completed.',
-    'tcgen05.st': 'Issues an asynchronous store from registers into tensor memory.',
-    'tcgen05.wait::st': 'Blocks until all outstanding tensor-memory stores of this thread have completed.',
-    'st.global': 'Stores values to global memory.',
-    'T.Pipelined': 'A software-pipelined loop: copies for later iterations overlap with the computation of the current one.',
-    'T.copy': 'Copies a tile into a shared-memory buffer.',
-    'T.tcgen05_gemm': 'Issues an asynchronous matrix multiplication on the tensor core. On completion, the pending arrivals of mbar are decremented by one.',
-    'T.mbarrier_wait_parity': 'Blocks until the barrier completes the given phase. A phase completes when both of its counts reach zero.'
+    'init': t('Initializes a barrier with the given number of pending arrivals and zero pending bytes.'),
+    'syncthreads': t('Blocks each thread until all threads in the block reach this point.'),
+    'arrive.expect_tx': t('Adds the given number of bytes to the barrier’s pending bytes, then decrements its pending arrivals by one.'),
+    'expect_tx': t('Adds the given number of bytes to the barrier’s pending bytes.'),
+    'arrive': t('Decrements the barrier’s pending arrivals by one.'),
+    'wait': t('Blocks until the barrier completes the given phase. A phase completes when both of its counts reach zero.'),
+    'tma_load': t('Issues an asynchronous copy of a tile into shared memory. On completion, the copied bytes are subtracted from the barrier’s pending bytes.'),
+    'cp.async': t('Issues an asynchronous copy of data into shared memory.'),
+    'tcgen05.mma': t('Issues an asynchronous matrix multiplication on the tensor core.'),
+    'tcgen05.commit': t('Decrements the barrier’s pending arrivals by one once all tensor-core operations previously issued by this thread have completed.'),
+    'tcgen05.ld': t('Issues an asynchronous load from tensor memory into registers.'),
+    'tcgen05.wait::ld': t('Blocks until all outstanding tensor-memory loads of this thread have completed.'),
+    'tcgen05.st': t('Issues an asynchronous store from registers into tensor memory.'),
+    'tcgen05.wait::st': t('Blocks until all outstanding tensor-memory stores of this thread have completed.'),
+    'st.global': t('Stores values to global memory.'),
+    'T.Pipelined': t('A software-pipelined loop: copies for later iterations overlap with the computation of the current one.'),
+    'T.copy': t('Copies a tile into a shared-memory buffer.'),
+    'T.tcgen05_gemm': t('Issues an asynchronous matrix multiplication on the tensor core. On completion, the pending arrivals of mbar are decremented by one.'),
+    'T.mbarrier_wait_parity': t('Blocks until the barrier completes the given phase. A phase completes when both of its counts reach zero.')
   };
   OPS.__syncthreads = OPS.syncthreads;
 

@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SentryWard：warp-specialized GPU kernel 的形式化验证</title>
+<link rel="canonical" href="https://sentryward.io/blog/zh-cn/">
+<link rel="alternate" hreflang="en" href="https://sentryward.io/blog/">
+<link rel="alternate" hreflang="zh-CN" href="https://sentryward.io/blog/zh-cn/">
+<link rel="alternate" hreflang="x-default" href="https://sentryward.io/blog/">
+<meta name="author" content="Mengdi Wu, Sreeram Vennam, Stephen Mell, Advay Kadam, Xinhao Cheng, Oded Padon, Zhihao Jia">
+<meta name="description" content="SentryWard 证明 warp-specialized GPU kernel 的 barrier 在所有调度下行为一致、任何调度都不存在数据竞争，并且 kernel 与 PyTorch reference 计算同一个函数。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Inconsolata:wght@400;600&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../css/style.css">
+<link rel="stylesheet" href="../../css/site.css?v=20261025-lang-menu">
+</head>
+<body class="post-page">
+<a class="skip-link" href="#main">跳到正文</a>
+
+<header class="topbar"><div class="in">
+  <a class="brand" href="../../"><img src="../../assets/sentryward-wordmark.svg" width="113" height="22" alt="SentryWard"></a>
+  <nav class="topnav" aria-label="主导航"><a href="./" aria-current="page"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 4h6a3 3 0 0 1 3 3v14a4 4 0 0 0-4-2H4zM13 7a3 3 0 0 1 3-3h5v15h-4a4 4 0 0 0-4 2"/></svg><span>博客</span></a><a href="https://github.com/gpu-verifier/sentryward"><svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 .5a12 12 0 0 0-3.79 23.39c.6.11.82-.26.82-.58v-2.03c-3.34.73-4.04-1.42-4.04-1.42-.55-1.39-1.33-1.76-1.33-1.76-1.09-.75.08-.73.08-.73 1.2.08 1.84 1.23 1.84 1.23 1.07 1.84 2.81 1.31 3.5 1 .11-.78.42-1.31.76-1.61-2.66-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.23-3.22-.12-.3-.53-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.65 1.66.24 2.88.12 3.18.77.84 1.23 1.91 1.23 3.22 0 4.61-2.81 5.62-5.49 5.92.43.37.81 1.1.81 2.22v3.13c0 .32.22.7.83.58A12 12 0 0 0 12 .5Z"/></svg><span>Github</span></a><a href="../../slack/"><svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zM17.688 8.834a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zM15.165 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zM15.165 17.688a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"/></svg><span>Slack</span></a><a href="../../results/"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11m5-7h3m-3 4h3"/></svg><span>结果</span></a><a href="../../demo/"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l6-3.5z"/></svg><span>演示</span></a><details class="lang-menu"><summary aria-label="语言 / Language"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg><span>简体中文</span></summary><ul><li><a href="../" hreflang="en" lang="en">English</a></li><li><a href="../zh-cn/" hreflang="zh-CN" lang="zh-CN" aria-current="true">简体中文</a></li></ul></details></nav>
+</div></header>
+
+<article id="main">
+<h1>SentryWard：warp-specialized GPU kernel 的形式化验证</h1>
+<ul class="post-authors" aria-label="作者">
+  <li><a rel="author" href="https://wmdi.github.io/">Mengdi Wu</a></li>
+  <li><a rel="author" href="https://vnnm404.github.io/">Sreeram Vennam</a></li>
+  <li><a rel="author" href="https://mell.ac/">Stephen Mell</a></li>
+  <li><a rel="author" href="https://github.com/Advay-K1">Advay Kadam</a></li>
+  <li><a rel="author" href="https://z2w.tech/">Ziwei Zhou</a></li>
+  <li><a rel="author" href="https://xinhaoc.github.io/">Xinhao Cheng</a></li>
+  <li><a rel="author" href="https://www.wisdom.weizmann.ac.il/~padon/">Oded Padon</a></li>
+  <li><a rel="author" href="https://www.cs.cmu.edu/~zhihaoj2/">Zhihao Jia</a></li>
+</ul>
+
+<nav class="post-toc" aria-label="本文内容">
+  <p>本文内容</p>
+  <ol>
+    <li><a href="#inside-a-kernel">深入 warp-specialized kernel</a></li>
+    <li><a href="#a-missing-wait">一个依赖调度的 bug</a></li>
+    <li><a href="#how-it-works">SentryWard 的工作原理</a></li>
+    <li><a href="#results">结果</a></li>
+    <li><a href="#future-directions">局限与未来工作</a></li>
+  </ol>
+</nav>
+
+<p>长期以来，GPU kernel 都是整齐划一的数据并行程序：一个 block 内的所有线程执行同一份代码，各自处理自己那部分数据。而在 NVIDIA Hopper、Blackwell 等新架构上，矩阵乘法和数据搬运交给了专用单元，也就是 Tensor Core 和 Tensor Memory Accelerator（TMA）。这些单元是异步工作的：线程只负责发起操作，由单元在之后完成。</p>
+<p>要跑到峰值性能，kernel 必须让这些单元同时忙起来，在计算当前 tile 的同时加载下一个 tile。因此，高性能 kernel 会给不同的 warp 分配不同的角色，比如加载、计算、写回结果。这种写法称为 <i>warp specialization</i>（warp 特化）。warp 之间通过 barrier 协调，barrier 负责等待异步操作完成。</p>
+<p>这样的 kernel 是一个并发程序，在不同调度下的行为可能不同。有的同步错误只在特定调度下才会破坏输出。随机测试只能采到运行时实际出现的调度，很可能漏掉这类错误。此外，即使同步完全正确，kernel 也可能因为逻辑错误而算错函数。</p>
+<p>SentryWard 是一个面向 warp-specialized GPU kernel 的验证器。给定 kernel 的 PTX、launch 配置，以及可选的 PyTorch reference，它可以在该配置下、在其模型范围内证明以下性质：</p>
+<ul>
+  <li><b>同步正确且无死锁。</b>barrier 和 mbarrier（包括 TMA 的字节计数）在所有调度下行为一致，且任何执行都不会死锁。</li>
+  <li><b>无数据竞争。</b>对 global、shared 和 tensor memory 的冲突访问都有确定的先后顺序，异步拷贝和 Tensor Core 操作也包括在内。</li>
+  <li><b>资源生命周期安全。</b>tensor memory 和 barrier 不会在释放或失效之后再被使用。</li>
+  <li><b>数学正确性。</b>如果提供了 reference，kernel 在实数语义下与 PyTorch reference 计算的是同一个函数。</li>
+  <li><b>安全地移除同步。</b>删掉某个候选同步操作后，SentryWard 可以验证修改后的 kernel 在指定的输入形状和 launch 配置下仍然满足所需的正确性性质。</li>
+</ul>
+<p>SentryWard 在一些常用 kernel 库中发现了问题，下文介绍其中三个。在 44 个 kernel 上，移除 SentryWard 证明为冗余的同步后，kernel 耗时的中位数降低了 3&ndash;7.5%，具体取决于输入规模。本文将介绍 warp-specialized kernel 如何同步、可能出什么错，以及 SentryWard 如何检查它们。</p>
+
+<h2 id="inside-a-kernel">深入 warp-specialized kernel</h2>
+<h3 id="mbarrier-operations">mbarrier 操作</h3>
+<p><code>__syncthreads()</code> 这类 block 级 barrier 会让 block 内所有线程互相等待，但它不会等待异步拷贝或矩阵乘法完成。因此，warp-specialized kernel 改用 <i>mbarrier</i> 来同步。mbarrier 是位于 shared memory 中的 barrier 对象，带有两个计数器，分别记录 barrier 仍在等待的<i>待到达数</i>（pending arrivals）和<i>待到字节数</i>（pending bytes）。线程在 barrier 上执行 arrive，异步拷贝则上报自己送达的字节数。两个计数器都归零时，当前相位（phase）完成：等待该相位的线程继续执行，barrier 重置计数器，进入下一个相位。我们把 barrier 的状态记作（待到达数, 待到字节数）。例如，一个期望一次到达的 barrier 初始状态为 (1, 0)；一个线程声明 32 KB 并到达后，状态变为 (0, 32 KB)；等拷贝送达全部 32 KB，状态变为 (0, 0)，相位完成。</p>
+<p>下表给出伪代码中每个操作的规约，其中 \(p\) 为相位号，\(n\) 为每个相位期望的到达数，\(a\) 为待到达数，\(b\) 为待到字节数（已声明的字节数减去已完成的字节数）。这些规约依据 NVIDIA 的 <a href="https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#parallel-synchronization-and-communication-instructions-mbarrier">mbarrier</a>、<a href="https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#data-movement-and-conversion-instructions-cp-async-bulk-tensor">TMA copy</a> 和 <a href="https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#tcgen-async-sync-operations-commit"><code>tcgen05.commit</code></a> 规范，省略了 scope 限定符和 fence。</p>
+<table class="booktabs mbarrier-interface">
+  <caption>示例中用到的 mbarrier 接口</caption>
+  <thead><tr><th scope="col">接口</th><th scope="col">规约</th></tr></thead>
+  <tbody>
+    <tr><th scope="row"><code>init(bar, n)</code></th><td>用正的到达数 \(n\) 初始化 barrier，令 \((p,a,b)=(0,n,0)\)。初始化必须先于其他任何使用。</td></tr>
+    <tr><th scope="row"><code>arrive(bar)</code></th><td>在 \(a>0\) 时记录一次到达：\(a \leftarrow a-1\)。调用者不等相位完成，直接继续执行。</td></tr>
+    <tr><th scope="row"><code>expect_tx(bar, bytes)</code></th><td>声明额外的字节数：\(b \leftarrow b+\mathit{bytes}\)。它既不记录到达，也不发起传输。</td></tr>
+    <tr><th scope="row"><code>arrive.expect_tx(bar, bytes)</code></th><td>在 \(a>0\) 时先声明 \(\mathit{bytes}\)，再记录一次到达。字节期望会在这次到达可能完成相位之前加上。</td></tr>
+    <tr><th scope="row"><code>wait(bar, parity)</code></th><td>等待由 \(\mathit{parity}=p_{\mathrm{target}}\bmod 2\) 标识的相位完成。它是一个反复执行 PTX parity 测试的循环，而不是一条阻塞指令；它不改变任何计数器。</td></tr>
+    <tr><th scope="row"><code>tma_load(dst &larr; src, bar)</code></th><td>发起一次从 global memory 到 shared memory 的异步拷贝。拷贝完成时，硬件通过完成通知从 \(b\) 中减去已传输的字节数。期望字节数必须另行声明；拷贝本身不会减少 \(a\)。</td></tr>
+    <tr><th scope="row"><code>tcgen05.commit(bar)</code></th><td>安排一次异步到达：本线程此前受 mbarrier 跟踪的 <code>tcgen05</code> 操作（在我们的例子中就是 MMA）完成后，这次到达才会发生。该通知使 \(a\) 减一；发出 commit 本身不会等待这些操作完成。</td></tr>
+  </tbody>
+</table>
+
+<h3 id="running-example">贯穿全文的示例</h3>
+<p>我们的示例是一个运行在 Blackwell GPU 上的小型 warp-specialized kernel，它计算矩阵乘法 \(C = AB\) 中的一个 tile。大规模矩阵乘法通常会切成这样的 tile，每个 thread block 负责一个。每个 thread block 沿公共维度 \(K\) 循环，计算 \(C\) 中属于自己的 \(M \times N\) tile，每次迭代把 \(A\) 的一块与 \(B\) 的一块相乘。这个循环做了软件流水线：Tensor Core 处理当前这一块的同时，TMA 预取后续迭代要用的块。循环结束后，由 <i>epilogue</i> 把累加好的 tile 写回 global memory 中的 \(C\)。我们的示例只跑一次迭代，取 \(M = N = 128\)、\(K = 64\)；元素是 16 位，所以每个输入 tile 是 16 KB。</p>
+<p>这个 kernel 共有 128 个线程，分成 4 个 warp。warp 0 加载输入 tile，warp 1 发射矩阵乘累加（MMA）指令。两项工作放在不同的 warp 里，才能相互重叠。之后四个 warp 一起执行 epilogue。我们把这三种角色分别称为 producer、consumer 和 epilogue。每次拷贝或 MMA 都由单个线程发起。首先，线程 0（warp 0）让 TMA 把输入 tile 拷贝到 shared memory 缓冲区 <code>sA</code> 和 <code>sB</code>。两次拷贝都到达后，barrier <code>full</code> 完成，线程 32（warp 1）发射 MMA；Tensor Core 执行这条 MMA，并把乘积写入 tensor memory 中的 <code>acc</code>。乘积就绪后，barrier <code>mma_done</code> 完成，全部 128 个线程把 <code>acc</code> 拷贝到 global memory 中的 \(C\)，每个线程负责一行。</p>
+<figure class="listing">
+<pre>// 128 个线程（4 个 warp），线程编号为 t。
+if t == 0:
+    init(full, 1)
+    init(mma_done, 1)
+syncthreads()
+
+<span class="c">// 主循环：真实的 kernel 会对 K 的每一块重复执行；</span>
+<span class="c">// 这里 K 只有一块，所以只执行一次。</span>
+if t == 0:                           <span class="c">// producer</span>
+    arrive.expect_tx(full, 32 KB)        <span class="sn">1</span>
+    tma_load(sA &larr; A, full)               <span class="sn">2</span> <span class="sn">3</span>
+    tma_load(sB &larr; B, full)               <span class="sn">2</span> <span class="sn">3</span>
+
+if t == 32:                          <span class="c">// consumer</span>
+    wait(full, 0)                        <span class="sn">4</span>
+    tcgen05.mma(acc &larr; sA * sB)           <span class="sn">5</span>
+    tcgen05.commit(mma_done)             <span class="sn">6</span>
+
+<span class="c">// Epilogue</span>
+wait(mma_done, 0)                        <span class="sn">7</span>
+r = tcgen05.ld(acc[t, :])                <span class="sn">8</span>
+tcgen05.wait::ld()
+st.global(C[t, :] &larr; r)                   <span class="sn">8</span></pre>
+<figcaption>示例的伪代码；步骤编号与图 1 一致。将鼠标悬停在某个操作上或点按它，可以查看它的作用。</figcaption>
+</figure>
+
+<figure class="wide">
+  <div data-fig="dataflow"></div>
+  <figcaption>图 1：贯穿全文的示例。线程只负责发起拷贝和乘法，由 TMA 和 Tensor Core 异步完成。两个 barrier 保证每一步都不会在数据就绪之前使用它。步骤编号与代码一致。</figcaption>
+</figure>
+
+<p>这个 kernel 之所以正确，完全依赖 barrier 强制的执行顺序：步骤 4 防止乘法过早读取 <code>sA</code> 和 <code>sB</code>，步骤 7 防止线程过早加载累加器。</p>
+
+<h2 id="a-missing-wait">一个依赖调度的 bug</h2>
+<p>现在假设 epilogue 漏掉了它的 wait，也就是步骤 7：</p>
+<pre><del class="bad">wait(mma_done, 0)</del>                    <span class="c">// epilogue（有 bug）</span>
+r = tcgen05.ld(acc[t, :])
+tcgen05.wait::ld()
+st.global(C[t, :] &larr; r)</pre>
+<p>两个 barrier 的计数和之前完全一样：两次拷贝完成 <code>full</code> 的相位 0，commit 带来的到达完成 <code>mma_done</code> 的相位 0。但现在已经没有任何机制把 epilogue 的加载排在乘法之后。epilogue 是在 Tensor Core 写入 <code>acc</code> 之前还是之后读取它，取决于调度：</p>
+
+<figure class="wide">
+  <div data-fig="schedules"></div>
+  <figcaption>图 2：有 bug 的 kernel 的两次执行。事件按执行顺序列出，并给出每次更新后 barrier <code>mma_done</code> 的状态（待到达数, 待到字节数）。barrier 在两次执行中的行为相同，区别只在于 epilogue 是在 Tensor Core 写入 <code>acc</code> 之前还是之后读取它。</figcaption>
+</figure>
+
+<p>在这个小 kernel 里，漏掉的 wait 很容易发现。但真实的 kernel 有多得多的角色、流水线 stage 和异步操作，就没那么容易了。下文的结果中就有 CUTLASS 里一个与此非常相似的 wait 缺失。</p>
+
+<p>测试只能观察到碰巧出现的调度，Compute Sanitizer 这类动态竞争检测器也是如此。而枚举所有调度很快就会变得不可行，因为调度的数量随线程数和异步操作数呈指数增长。<b>我们需要一种不必穷举、却能覆盖所有调度的论证。</b></p>
+
+<h2 id="how-it-works">SentryWard</h2>
+<p>为了证明一个 kernel 正确，SentryWard 依次检查三个性质：barrier 在所有调度下行为一致；任何调度都不存在数据竞争，也不会在资源释放后继续使用它；kernel 与 reference 计算同一个函数。第一个性质称为 <i>well-synchronization</i>（良同步），最早是针对 named barrier 提出的 <a href="#ref-1">[1]</a>，并在 <a href="https://github.com/lightsighter/Weft">WEFT</a> 验证器中实现；SentryWard 把这一定义及其算法扩展到了 mbarrier。每一项检查都依赖前一项给出的保证，而每一项保证都在所建模的语义下覆盖该 launch 配置的所有调度。一旦某项检查发现违例，SentryWard 就会报告一个 <i>witness</i>（见证），例如一次竞争中两个无序的访问。</p>
+
+<figure class="wide">
+  <div data-fig="pipeline"></div>
+  <figcaption>图 3：SentryWard 验证 kernel 的流程。蓝色方框是它构建的表示，白色方框是它执行的分析。</figcaption>
+</figure>
+
+<h3 id="program-representation">程序表示</h3>
+<p>SentryWard 分析的是<b>静态控制流</b>的 kernel：分支和循环边界可以依赖 launch 配置，但不能依赖数据。它首先针对 launch 配置对 kernel 做特化：确定分支走向并展开循环，使每个线程执行一段有限的指令序列。然后它用两种视图记录程序：一种是<i>事件视图</i>（event view），即一张事件图；另一种是<i>值视图</i>（value view），记录每个线程加载、存储和计算了什么。立即生效的指令（比如一次 store 或一次 barrier 更新）对应单个事件。异步指令以一个发射（issue）事件开始，其余部分由硬件完成。程序序（program order）边记录每个线程的代码所规定的顺序。</p>
+
+<figure class="wide">
+  <div data-fig="event-graph"></div>
+  <figcaption>图 4：示例的事件图。带阴影的事件由 TMA 或 Tensor Core 在线程发射指令之后执行。</figcaption>
+</figure>
+
+<h3 id="synchronization-analysis">同步分析</h3>
+<p>程序序只约束单个线程内部；线程之间的顺序来自 barrier。一个 mbarrier 会经历一系列<i>相位</i>。在每个相位中，它统计待到达数和待到字节数：<code>arrive</code> 让待到达数减一，<code>expect_tx</code> 声明字节数，TMA 拷贝在传输完成时减去自己的字节数。两个计数器都归零时，该相位完成，下一个相位开始，计数器重置。线程用 <code>wait</code> 等待某个相位完成；在我们的例子中，所有 wait 等的都是相位 0。</p>
+<p>一个 wait 能观察到哪些更新？它所等待的那个相位里的更新。但调度可能改变一次更新归入哪个相位。在一种调度下，某次更新发生在相位 0 完成之前，于是归入相位 0；在另一种调度下，相位 0 先完成，同一次更新就归入了相位 1。SentryWard 关注的是调度永远不会改变 wait 所观察内容的 kernel。形式上，它要求 kernel 是良同步的：<b>每次 barrier 更新和每个 wait 在每次执行中都属于同一个相位</b>。</p>
+<p class="caveat"><b>注意。</b>有些正确的 kernel 并不是良同步的，因此不在 SentryWard 的处理范围内。不过，程序员通常本来就希望每个 wait 观察某个特定的相位；实践中我们也发现这个范围已经够用：我们的 benchmark 中只有一个 kernel 没有通过 SentryWard 的良同步检查。</p>
+<p>沿用 WEFT 的做法，SentryWard 先沿任意一个能执行完的调度模拟 kernel 的一条 trace，并记录每次 barrier 更新和每个 wait 所属的相位。基于这条 trace，它构建一张<i>候选图</i>（candidate graph），为每个相位添加一个完成顶点。然后它验证所有调度都与这条 trace 一致。WEFT 的做法是检查每次更新都发生在其 barrier 的上一个相位完成之后。如果验证通过，候选图就是 kernel 的 <i>happens-before 图</i>：其中的顺序在每次执行中都成立，并且没有任何执行会死锁。</p>
+
+<figure class="wide">
+  <div data-fig="hb-graph"></div>
+  <figcaption>图 5：正确 kernel 与有 bug 的 kernel 的候选图，可以用开关切换。每张图都在 kernel 的事件图（图 4）上，为每个相位添加一个完成顶点及其同步边（蓝色）；程序序边用灰色表示。验证步骤接受了这两张图，因此它们也就是 happens-before 图。从 MMA 执行出发的粗路径只在正确的 kernel 中能到达线程 \(t\) 对累加器的读取；在有 bug 的 kernel 中，这两个事件（红色）之间没有顺序。</figcaption>
+</figure>
+
+<p>难点在于字节计数器，WEFT 的检查对它不够用。named barrier 只统计到达数，所以一个相位不可能在最后一次到达之前完成。而待到字节数既会增加也会减少，所以一个相位可能在它的全部更新发生之前就达到 (0, 0)。这时它会提前完成：等待它的线程不等剩下的更新就继续执行，剩下的更新则归入下一个相位。来看一个和上面不同的错误：producer 对每个 tile 的 16 KB 分别声明，每次都在发起对应的拷贝之前。</p>
+<pre>if t == 0:                           <span class="c">// producer（另一个 bug）</span>
+    <span class="bad">arrive.expect_tx(full, 16 KB)</span>
+    tma_load(sA &larr; A, full)
+    <span class="bad">expect_tx(full, 16 KB)</span>
+    tma_load(sB &larr; B, full)</pre>
+<p>如果拷贝 A 在第二次声明之前就到达，相位 0 会提前完成，第二次声明归入相位 1。与漏掉 wait 的情况不同，这个 kernel 不是良同步的：第二次声明归入哪个相位取决于调度。为了发现这类 kernel，<b>SentryWard 会检查没有任何相位可能提前完成</b>。它寻找这样的更新：它们可能先于本相位的其余更新发生，并且已经把两个计数器都降到零，比如这里的第一次声明和拷贝 A。</p>
+
+<figure class="wide">
+  <div data-fig="phase-check"></div>
+  <figcaption>图 6：barrier <code>full</code> 在相位 0 中的更新。拷贝完成时，会通过一次 <code>complete_tx</code> 更新从 <code>full</code> 中减去自己的字节数；箭头从一次更新指向必须在它之后发生的更新。(a) 分开声明时，第一次声明和拷贝 A 的 <code>complete_tx</code> 可能先于另外两次更新发生，并且已经把 <code>full</code> 从 (1, 0) 变为 (0, 0)，于是相位 0 提前完成（红色），灰色的更新随之落入相位 1。(b) 在正确的 kernel 中，唯一的一次声明最先发生，所以只有三次更新全部发生才能完成该相位。</figcaption>
+</figure>
+
+<p>漏掉 wait 的那个有 bug 的 kernel 能通过良同步检查，因为它的 barrier 计数与正确的 kernel 完全相同。但没有了 epilogue 的 wait，它的 happens-before 图中就不存在从 MMA 执行到 epilogue 加载的路径（见图 5 的&ldquo;有 bug 的 kernel&rdquo;标签页）。</p>
+
+<h3 id="race-freedom">无数据竞争与串行化</h3>
+<p>有了 happens-before 图，检查竞争就变成了路径问题。如果两次访问的足迹（footprint）可能重叠，且至少有一次是写，它们就是冲突的；SentryWard 要求<b>每一对冲突访问都是有序的</b>。足迹按精确的布局计算，包括经过 swizzle 的 shared memory tile；地址是符号值时，由 SMT 求解器判断是否重叠。</p>
+
+<figure class="wide">
+  <div data-fig="views"></div>
+  <figcaption>图 7：MMA 和一个 epilogue 线程 \(t\) 的事件视图（上）和值视图（下）；灰色方框表示访存。对 <code>acc</code> 的写入与对第 \(t\) 行的读取在正确的 kernel 中是有序的，在有 bug 的 kernel 中则构成竞争。</figcaption>
+</figure>
+
+<p>在有 bug 的 kernel 中，没有任何机制把 MMA 对 <code>acc</code> 的写入排在 epilogue 的加载之前，所以 SentryWard 报告一个竞争，并以这两次访问作为 witness。释放后使用（use after free）也用同样的方法检查：对资源（如 tensor memory）的每次使用，都必须排在该资源被释放之前。</p>
+<p><b>在这个模型下，通过这些检查的 kernel 表现得就像一个顺序程序。</b>对给定的输入，每次执行的效果都等同于按 happens-before 图允许的任意顺序逐个执行其事件：每次读和每次写访问的地址和值都相同，最终的内存状态也相同。</p>
+
+<h3 id="compact-representation">紧凑表示</h3>
+<p>显式地按线程、按标量来表示是无法扩展的：一个 block 有数百个线程，而单个 \(128 \times 256\) 的输出 tile 在 \(K = 4096\) 时就涉及约 \(1.3 \times 10^8\) 次乘累加。<b>这些规模大多来自重复</b>，SentryWard 压缩了其中两类。</p>
+<p><b>用模板表示重复的线程和数据。</b>许多线程在不同的数据上运行同一份代码，许多数据元素也以相同的方式处理。SentryWard 用一个以线程或元素为下标的模板来表示这样的一族，并直接分析模板。例如，走相同分支的线程共享同一个模板。</p>
+<p><b>用 Fold 表示归约。</b>归约是在一个下标范围上重复同一个运算。SentryWard 不把它存成一串运算，而是存成一个 <i>Fold</i>，由运算符 \(\oplus\)、下标范围、初始值 \(z\) 以及每个下标处的项 \(e(k)\) 确定：</p>
+<div class="eq">\[\mathit{Fold}_{\oplus}\bigl(k \in [l, n),\ z,\ e(k)\bigr) = z \oplus e(l) \oplus e(l+1) \oplus \cdots \oplus e(n-1).\]</div>
+<p>Fold 的大小与其范围的长度无关。在示例中，MMA 按下式计算累加器的每个元素：</p>
+<div class="eq">\[\texttt{acc}[i, j] = \mathit{Fold}_{+}\bigl(k \in [0, K),\ 0,\ \texttt{sA}[i, k] \cdot \texttt{sB}[k, j]\bigr).\]</div>
+<p>SentryWard 从 MMA 指令和代码中的重复更新构建 Fold，下面的等价性检查直接作用在 Fold 上，无需展开。</p>
+
+<h3 id="equivalence-checking">等价性检查</h3>
+<p>一个 kernel 即使是良同步、无竞争的，也仍可能因为逻辑错误而算错函数。由于无竞争的 kernel 表现得像顺序程序，SentryWard 只需在一个<i>串行化</i>（serialization）上分析它的计算，分两步进行：先对串行化做符号执行，消去加载和存储，把每个输出变成关于输入的纯表达式；再证明这些表达式与 reference 的表达式等价。</p>
+
+<h4>通过符号执行消去加载与存储</h4>
+<p>符号执行沿着串行化推进，并维护一个内存状态：每个地址上最后一次存入的表达式。每次存储更新其地址上的状态；每次加载则替换为状态在该地址上保存的表达式，如果该地址从未被写入，就替换为一个输入。中间的缓冲区（这里是 <code>sA</code>、<code>sB</code> 和 <code>acc</code>）随之消失，每个输出元素都变成只由输入构成的表达式。</p>
+
+<figure>
+  <div class="tab-wrap">
+    <table class="booktabs memtab">
+      <thead><tr><th>事件</th><th>加载与存储</th><th>符号执行之后</th></tr></thead>
+      <tbody>
+      <tr><td>拷贝 A</td><td>加载 <code>A[t, k]</code>，存储 <code class="a1">sA[t, k]</code></td><td><code class="a1">sA[t, k]</code> \(\leftarrow A[t, k]\)</td></tr>
+      <tr><td>拷贝 B</td><td>加载 <code>B[k, j]</code>，存储 <code class="a2">sB[k, j]</code></td><td><code class="a2">sB[k, j]</code> \(\leftarrow B[k, j]\)</td></tr>
+      <tr><td>MMA</td><td>加载 <code class="a1">sA[t, k]</code>，加载 <code class="a2">sB[k, j]</code>，存储 <code class="a3">acc[t, j]</code></td><td><code class="a3">acc[t, j]</code> \(\leftarrow \sum_k A[t, k] \cdot B[k, j]\)</td></tr>
+      <tr><td>epilogue，线程 \(t\)</td><td>加载 <code class="a3">acc[t, j]</code>，存储 <code>C[t, j]</code></td><td><code>C[t, j]</code> \(\leftarrow \sum_k A[t, k] \cdot B[k, j]\)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <figcaption>图 8：为示例中的一个输出元素消去加载和存储，事件按串行化顺序排列。每次加载取的是此前最后一次写同一地址的存储所写入的表达式（颜色对应）；从未被存储写过的地址（如 <code>A[t, k]</code>）保存的是输入。</figcaption>
+</figure>
+<h4>证明与 reference 等价</h4>
+<p>这一步的输入是关于同一组输入的两个纯表达式：一个来自 kernel（经过加载/存储消去），一个来自 reference。两者很少完全相同，因为优化过的 kernel 计算归约的方式与 reference 不同：它可能把一个归约拆成几部分，以不同的顺序组合这些部分，或者对它们做缩放。为了证明两个表达式相等，<b>SentryWard 以 reference 为向导</b>：把 kernel 的表达式逐部分地与 reference 的中间结果对应起来。</p>
+<p>图 9 给出了一个例子：对一个 query \(q\) 和四个维度为 4 的 key 计算 attention，每个 key \(j\) 对应一个标量 value \(v_j\)。reference 计算分数 \(s_j\)、它们的指数之和 \(Z\)，以及加权和 \(U\)（求和就是 \(\oplus = +\)、\(z = 0\) 的 Fold）。优化后的 kernel 把每个分数拆给两个线程，一个负责偶数 \(k\)，一个负责奇数 \(k\)。它用 online softmax 把 key 分成两个 block 处理：在每个 block 内，先减去该 block 的最大分数再取指数，合并时再把两个 block 都缩放到全局最大分数 \(m\)。为了证明 kernel 的输出 \(p / \ell\) 等于 \(U / Z\)，SentryWard 依次证明五个等式。</p>
+
+<figure class="wide">
+  <div class="pfig">
+    <div class="pcard pref">
+      <div class="ptitle">Reference</div>
+      <div class="prows">
+        <span class="plab">分数</span><span>\(\rf{s_j} = \sum_k q_k K_{j,k}\)</span>
+        <span class="pb"></span><span class="pb"></span>
+        <span class="pb"></span><span class="pb pnote">不分 block：对所有 key 一次求和</span>
+        <span class="pb"></span><span class="pb"></span>
+        <span class="pb"></span><span class="pb"></span>
+        <span class="pb"></span><span class="pb"></span>
+        <span class="plab">求和</span><span>\(\rf{Z} = \sum_j e^{\rf{s_j}}\)</span>
+        <span class="plab"></span><span>\(\rf{U} = \sum_j e^{\rf{s_j}}\, v_j\)</span>
+        <span class="plab">输出</span><span>\(\rf{U} / \rf{Z}\)</span>
+      </div>
+    </div>
+    <div class="pcard pker">
+      <div class="ptitle">优化后的 kernel</div>
+      <div class="prows">
+        <span class="plab">分数</span><span>\(\kn{\tilde{s}_j} = (q_0 K_{j,0} + q_2 K_{j,2}) + (q_1 K_{j,1} + q_3 K_{j,3})\)</span>
+        <span class="plab">block \(A\)</span><span>\(m_A = \max_{j \in A} \kn{\tilde{s}_j}\)，其中 \(A = \{0, 1\}\)</span>
+        <span class="plab"></span><span>\(\kn{\ell_A} = \sum_{j \in A} e^{\kn{\tilde{s}_j} - m_A}\)</span>
+        <span class="plab"></span><span>\(\kn{p_A} = \sum_{j \in A} e^{\kn{\tilde{s}_j} - m_A}\, v_j\)</span>
+        <span class="plab">block \(B\)</span><span>同理，其中 \(B = \{2, 3\}\)</span>
+        <span class="plab">合并</span><span>\(m = \max(m_A, m_B)\)</span>
+        <span class="plab"></span><span>\(\kn{\ell} = e^{m_A - m}\, \kn{\ell_A} + e^{m_B - m}\, \kn{\ell_B}\)</span>
+        <span class="plab"></span><span>\(\kn{p} = e^{m_A - m}\, \kn{p_A} + e^{m_B - m}\, \kn{p_B}\)</span>
+        <span class="plab">输出</span><span>\(\kn{p} / \kn{\ell}\)</span>
+      </div>
+    </div>
+    <div class="pcard pgoal">
+      <div class="ptitle">待证明</div>
+      <div class="pgoals">
+        <span class="pnum">1</span><span>\(\kn{\tilde{s}_j} = \rf{s_j}\)</span><span class="pwhy">各项恰好覆盖每个 \(k\) 一次</span>
+        <span class="pnum">2</span><span>\(\kn{\ell_A} = e^{-m_A} \sum_{j \in A} e^{\rf{s_j}}\)</span><span class="pwhy">每一项都是 \(\rf{Z}\) 中的一项乘以 \(e^{-m_A}\)；\(\kn{\ell_B}\)、\(\kn{p_A}\) 和 \(\kn{p_B}\) 同理</span>
+        <span class="pnum">3</span><span>\(\kn{\ell} = e^{-m}\, \rf{Z}\)</span><span class="pwhy">因子合并为 \(e^{-m}\)，且 block \(A\) 与 \(B\) 合起来恰好覆盖每个 \(j\) 一次</span>
+        <span class="pnum">4</span><span>\(\kn{p} = e^{-m}\, \rf{U}\)</span><span class="pwhy">同理</span>
+        <span class="pnum">5</span><span>\(\kn{p} / \kn{\ell} = \rf{U} / \rf{Z}\)</span><span class="pwhy">因子 \(e^{-m}\) 约去</span>
+      </div>
+    </div>
+  </div>
+  <figcaption>图 9：证明一个优化过的 attention kernel 与其 reference 相等。上方：reference 计算的值（蓝色）和 kernel 计算的值（紫色）。下方：SentryWard 证明的等式。每一步都用到前面的步骤；例如从第 2 步起，\(\tilde{s}_j\) 被替换为 \(s_j\)。</figcaption>
+</figure>
+
+<p>在每一步中，SentryWard 把 kernel 表达式的某一部分写成 \(c \cdot \sum_{k \in S} e(k) + r\)：公共因子 \(c\) 乘以 reference 某个求和中的项 \(e(k)\)，再加上余项 \(r\)。如果 \(S\) 恰好覆盖每个下标一次，这部分就等于 \(c\) 乘以 reference 的求和再加 \(r\)，后续步骤会用到这个等式。如果合并时忘了缩放其中一个 block，两个 block 的因子就会不同，也就找不到证明。SentryWard 在下标集合的紧凑表示（它们的生成函数）上检查覆盖关系，无需逐个列出下标，因此也能处理很大的、带步长的下标范围。对于不含归约的部分，SentryWard 把两边都规范化为指数多项式 <a href="#ref-2">[2]</a> 再比较；平方根之类的运算则单独处理。</p>
+<p>图 9 做了简化：它只合并了两个 block，而真实的 kernel 会在循环中合并很多个 block。SentryWard 用归纳法证明这类循环的正确性，归纳不变式把循环状态与 reference 联系起来。它对归纳的支持有限：只对少数几种模式（如 online softmax 和 Welford 统计）使用预定义的不变式，不会为这些模式以外的情况合成不变式。</p>
+<p>这项检查把浮点值当作实数处理，所以等价性只在实数语义下成立。它也是不完备的：找不到证明并不意味着 kernel 是错的。</p>
+
+<h2 id="results">结果</h2>
+<h3 id="library-issues">在常用 kernel 库中发现的问题</h3>
+<p>真实的 kernel 里也可能有和示例类似的错误，只是藏在多得多的线程、流水线 stage 和 barrier 之间。下面介绍 SentryWard 在常用库的 kernel 中标出的三个问题。第一个在 PyTorch 中，上游已经修复；另外两个分别在 TileLang 和 CUTLASS 中，我们已作为潜在的顺序问题报告给上游。</p>
+<p class="caveat"><b>注意。</b>SentryWard 的硬件模型基于我们对 PTX 文档的理解。文档没有规定所有细节，所以我们的模型可能与硬件的实际行为不同。模型基本上只影响 SentryWard 构建事件图的方式，因此修改模型不会影响在图上运行的分析。欢迎反馈；如果模型与硬件不符，我们会加以修正。</p>
+<p><b>PyTorch：一个已被修复的 bug。</b>我们分析了较早的 PyTorch 2.8.0 版本，SentryWard 在其 MultiMarginLoss 反向 kernel 中标出了一个竞争。该 kernel 把一行梯度分给一个 block 内的各个线程：线程 0 写入目标类别的梯度，随后每个线程缩放自己负责的那部分。两者之间没有 barrier，所以负责目标类别的线程可能缩放的是一个过时的值。这个 bug 已经有人独立于我们<a href="https://github.com/pytorch/pytorch/pull/158994">报告并在上游修复</a>，修复版本为 PyTorch 2.9.0。它提供了一个验证用例：一个经过独立确认、SentryWard 也能检测到的 bug。</p>
+<pre><span class="c">// 每行一个 block；线程 t 负责第 t, t + blockDim, ... 列</span>
+for each of my columns i &ne; target:
+    gradInput[i] = h(i)                   <span class="c">// 满足 margin 时为 0</span>
+    buffer[t] -= h(i)
+__syncthreads()
+if t == 0:
+    gradInput[target] = sum(buffer)       <span class="c">// 线程 0 写入目标项</span>
+<del class="bad">__syncthreads()</del>                           <span class="c">// 缺失；PyTorch 2.9.0 补上了它</span>
+for each of my columns i:
+    gradInput[i] *= gradOutput            <span class="c">// 目标项的负责线程对它做缩放</span></pre>
+<figure>
+  <div data-fig="bug-pytorch"></div>
+  <figcaption>图 10：PyTorch 2.8.0 中 MultiMarginLoss 反向 kernel 的末尾部分。没有任何机制把线程 0 对目标类别梯度的写入排在另一个线程缩放该项之前。PyTorch 2.9.0 在虚线处加了一个 <code>__syncthreads()</code>。</figcaption>
+</figure>
+<p><b>TileLang：缓冲区被过早复用。</b>第二个例子来自编译器。TileLang 把 tile 级的 Python 程序编译成 GPU kernel，并自动对加载做流水线。在两级流水线下，tile \(k\) 和 \(k + 2\) 共用一个缓冲区，所以 tile \(k + 2\) 的拷贝必须等 tile \(k\) 的乘法读完。流水线规划器（planner）把拷贝排在 MMA 指令之后，但 Tensor Core 是异步执行这条指令的，直到之后的某个 wait 之前都还在读这个缓冲区。在这个模型下，拷贝可能在乘法进行到一半时覆盖操作数，SentryWard 报告这次写与那次读之间存在潜在竞争。</p>
+<pre><span class="c"># TileLang 程序</span>
+for k in T.Pipelined(num_tiles, num_stages=2):
+    T.copy(A[k], A_shared)
+    T.copy(B[k], B_shared)
+    T.tcgen05_gemm(A_shared, B_shared, C_tmem, mbar=mbar)
+    T.mbarrier_wait_parity(mbar, k % 2)
+
+<span class="c">// 生成的循环体：第 k 次迭代，stage s = k % 2</span>
+tcgen05.mma(acc += sA[s] * sB[s])         <span class="c">// Tensor Core 读取 stage s</span>
+tcgen05.commit(mbar)
+__syncthreads()                           <span class="c">// 不会等待 Tensor Core</span>
+<span class="c">// tile k + 2 的拷贝覆盖 stage s</span>
+<span class="bad">cp.async(sA[s] &larr; A[k + 2])</span>
+<span class="bad">cp.async(sB[s] &larr; B[k + 2])</span>
+wait(mbar, k % 2)                         <span class="c">// 直到这里才能确认 MMA k 已完成</span></pre>
+<figure>
+  <div data-fig="bug-tilelang"></div>
+  <figcaption>图 11：TileLang 的流水线 GEMM，tile \(k\) 和 \(k + 2\) 共用缓冲区 \(s\)。tile \(k + 2\) 的拷贝位于 MMA 发射之后、等待其完成之前，所以没有任何机制把它排在 Tensor Core 读取该缓冲区之后。</figcaption>
+</figure>
+<p><b>CUTLASS：信号发得过早。</b>第三个例子与我们的示例非常接近。在 CUTLASS 的 Blackwell attention kernel 中，softmax warpgroup 把行统计量写入 tensor memory，然后通知 correction warpgroup 数据已就绪。但这次写是异步的，而信号发出前并没有用 <code>tcgen05.wait::st</code> 等它完成。在所分析的模型下，correction warpgroup 可能在统计量写入之前就读取它们。<a href="https://github.com/NVIDIA/cutlass/pull/3653">上游的排查</a>在 B200 压力测试中没有复现出读到旧值的情况。</p>
+<pre><span class="c">// softmax warpgroup，每个 key tile 执行一次</span>
+tcgen05.st(stats &larr; old_max, new_max)
+<del class="bad">tcgen05.wait::st()</del>                        <span class="c">// 缺失</span>
+arrive(stats_ready)                       <span class="c">// 通知 correction warpgroup</span>
+...
+tcgen05.st(P &larr; probabilities)
+tcgen05.wait::st()                        <span class="c">// 这里 kernel 确实做了 wait</span>
+arrive(p_ready)                           <span class="c">// 通知 MMA warp</span>
+
+<span class="c">// correction warpgroup</span>
+wait(stats_ready, phase)
+r = tcgen05.ld(stats)                     <span class="c">// 可能读到过时的统计量</span>
+scale = exp(r.old_max - r.new_max)</pre>
+<figure>
+  <div data-fig="bug-cutlass-stats"></div>
+  <figcaption>图 12：CUTLASS attention 示例中统计量的交接。arrive 不会等待异步 store 完成，所以没有任何机制把这次 store 排在 correction warpgroup 的 load 之前。</figcaption>
+</figure>
+
+<h3 id="redundant-synchronization">移除冗余同步</h3>
+<p>由于 SentryWard 检查所有调度，<b>它也能找出不必要的同步</b>：如果删掉某个同步操作后 kernel 仍能通过验证，那么在 SentryWard 的硬件模型下，对给定的输入形状和 launch 配置而言，这个操作就是冗余的。我们对每个通过验证的 kernel 贪心地应用这一测试，每次删一个操作，凡是通过测试的删除都保留下来。</p>
+<p>我们在 benchmark 中的 44 个 kernel 上做了这个实验，每个 kernel 用两种输入规模：示例中的输入，以及会让每个流水线缓冲区都被复用的更大输入（图 13）。在示例输入下，我们尝试的同步操作中有 48.6% 是不必要的；移除它们后，35 个 kernel 在 B200 上变快，kernel 耗时的中位数降低了 7.5%。在更大的输入下，42.4% 是不必要的，37 个 kernel 变快，中位降幅为 3.0%。可见输入越大，能删的越少；而且在一种输入下找到的删减方案，换一种输入可能就是错的：在更大的输入下，SentryWard 否决了在示例输入下找到的 44 个删减方案中的 35 个，其中 34 个在 B200 上会挂起或出错。作为额外的检查，我们还做了随机测试：每个删减后的 kernel 都与原 kernel 输出完全相同，示例输入下共测试了 500,000 次 launch，更大输入下测试了 20,000 次。</p>
+<figure class="wide">
+  <div data-fig="sync-removal"></div>
+  <figcaption>图 13：移除冗余同步后 kernel 在 B200 上的耗时降幅，覆盖 44 个 kernel，分别在示例输入和会让每个流水线缓冲区都被复用的更大输入下测量；可以用开关切换输入规模。每个点代表一个 kernel；位于 0% 的点表示没有可测量的变化。虚线标出中位数。</figcaption>
+</figure>
+
+<h2 id="future-directions">局限与未来工作</h2>
+<p>SentryWard 目前的适用范围有几处局限，每一处都是未来工作的方向。<a href="../../results/">结果页面</a>列出了我们 benchmark 中哪些 kernel 超出了这个范围，以及原因。</p>
+<ul>
+  <li><b>符号化的输入形状。</b>SentryWard 目前固定问题规模和 launch 配置。支持符号化的形状后，一次证明就能覆盖指定范围内的所有规模。</li>
+  <li><b>依赖数据的控制流和寻址。</b>默认情况下，分支、循环边界和地址都不能依赖从张量中加载的值。一般性地支持这种依赖，就能覆盖多得多的 kernel。</li>
+  <li><b>弱内存模型。</b>SentryWard 目前假定一次写一旦发生就对所有线程可见：它对 barrier 和异步完成所提供的顺序建模，但不对 fence 建模。支持完整的 PTX 内存模型后，就能覆盖用 fence 同步的 kernel。</li>
+  <li><b>浮点语义。</b>数值问题在 LLM 训练和推理中很重要。低精度会损失准确度，大数值会溢出，不同的求和顺序会得到不同的结果，例如在不同的 batch size 之间，或在训练与推理之间。把 SentryWard 从实数语义扩展到浮点语义，将有助于分析这些问题。</li>
+</ul>
+<h2 id="references">参考文献</h2>
+<ol class="refs">
+  <li id="ref-1">Rahul Sharma, Michael Bauer, and Alex Aiken. Verification of Producer-Consumer Synchronization in GPU Programs. In <i>PLDI</i>, 2015. <a href="https://doi.org/10.1145/2737924.2737962">doi:10.1145/2737924.2737962</a></li>
+  <li id="ref-2">Jiatu Li and Mengdi Wu. Identity Testing for Circuits with Exponentiation Gates. In <i>ITCS</i>, 2026. <a href="https://doi.org/10.4230/LIPIcs.ITCS.2026.95">doi:10.4230/LIPIcs.ITCS.2026.95</a></li>
+</ol>
+<p class="back-link"><a href="../../">&larr; 返回项目主页</a></p>
+</article>
+
+<footer><div class="footer-in"><a href="../../">&copy; 2026 The SentryWard Team</a><nav aria-label="页脚导航"><a href="./" aria-current="page"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 4h6a3 3 0 0 1 3 3v14a4 4 0 0 0-4-2H4zM13 7a3 3 0 0 1 3-3h5v15h-4a4 4 0 0 0-4 2"/></svg><span>博客</span></a><a href="https://github.com/gpu-verifier/sentryward"><svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 .5a12 12 0 0 0-3.79 23.39c.6.11.82-.26.82-.58v-2.03c-3.34.73-4.04-1.42-4.04-1.42-.55-1.39-1.33-1.76-1.33-1.76-1.09-.75.08-.73.08-.73 1.2.08 1.84 1.23 1.84 1.23 1.07 1.84 2.81 1.31 3.5 1 .11-.78.42-1.31.76-1.61-2.66-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.23-3.22-.12-.3-.53-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.65 1.66.24 2.88.12 3.18.77.84 1.23 1.91 1.23 3.22 0 4.61-2.81 5.62-5.49 5.92.43.37.81 1.1.81 2.22v3.13c0 .32.22.7.83.58A12 12 0 0 0 12 .5Z"/></svg><span>Github</span></a><a href="../../slack/"><svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zM17.688 8.834a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zM15.165 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zM15.165 17.688a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"/></svg><span>Slack</span></a><a href="../../results/"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11m5-7h3m-3 4h3"/></svg><span>结果</span></a><a href="../../demo/"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l6-3.5z"/></svg><span>演示</span></a></nav></div></footer>
+
+<script>
+  // The language menu keeps the section the reader is on (all translations share section ids)
+  // and closes when the reader clicks elsewhere.
+  (function () {
+    var menu = document.querySelector('.lang-menu');
+    menu.querySelectorAll('a').forEach(function (a) { a.addEventListener('click', function () { a.hash = location.hash; }); });
+    document.addEventListener('click', function (e) { if (!menu.contains(e.target)) menu.open = false; });
+  })();
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+  // Typeset \( ... \) and \[ ... \] with KaTeX. In Figure 9, \rf colors the values that the
+  // reference computes and \kn those that the kernel computes.
+  renderMathInElement(document.body, {
+    delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+    macros: { '\\rf': '\\textcolor{1e5c9b}{#1}', '\\kn': '\\textcolor{6d28d9}{#1}' },
+    throwOnError: false
+  });
+</script>
+<script src="../../js/i18n/zh-CN.js"></script>
+<script src="../../js/anim.js"></script>
+<script src="../../js/figs1.js"></script>
+<script src="../../js/figs2.js"></script>
+<script src="../../js/figs3.js"></script>
+<script src="../../js/op-tips.js"></script>
+</body>
+</html>

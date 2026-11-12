@@ -121,6 +121,7 @@ page cross-origin isolated.
 - `slack/index.html`: forwards `/slack/`, which every page's navigation links to, to the Slack workspace invite. When the invite link changes, update it here.
 - `media/`: the overview film, its subtitles, and its poster.
 - `blog/index.html`: technical article and author links.
+- `blog/zh-cn/index.html`: Simplified Chinese translation of the article; see [Translations](#translations).
 - `blog/verifying-warp-specialized-gpu-kernels/index.html`: legacy redirect to `/blog/`, preserving query strings and section anchors.
 - `css/style.css`: article and figure styles.
 - `css/site.css`: shared navigation, homepage, and blog layouts.
@@ -136,8 +137,22 @@ page cross-origin isolated.
 - `tests/home-examples.test.mjs`: bundled example lines, marks, and recorded witnesses match the PTX fixtures.
 - `js/anim.js`: figure helpers and animation runtime.
 - `js/figs1.js`, `js/figs2.js`, `js/figs3.js`: interactive figures.
+- `js/i18n/<lang>.js`: figure and code-tooltip text for one translation of the blog.
 
 Serve the repository root to preserve relative links and assets. Fonts and KaTeX load from external CDNs.
+
+## Translations
+
+Each translation of the blog is a full copy of the article at `blog/<code>/index.html`, with the same section ids
+so that links to a section work in every language. Figure labels and code tooltips are written in English in
+`js/figs*.js` and `js/op-tips.js` and pass through `SW.t()`; `js/i18n/<lang>.js` maps that English text to the
+translation, keyed by the page's `<html lang>`, and text it leaves out stays in English.
+
+To add a language, for example Japanese:
+
+1. Copy `blog/zh-cn/index.html` to `blog/ja/index.html`, set `<html lang="ja">` and the canonical URL, and translate the text.
+2. Copy `js/i18n/zh-CN.js` to `js/i18n/ja.js`, register it as `SW_I18N['ja']`, and translate the values. Load it before `js/anim.js` on the new page.
+3. In every translation's page, add the language to the `.lang-menu` list and add a `<link rel="alternate" hreflang>` for it.
 
 ## Origin and license
 

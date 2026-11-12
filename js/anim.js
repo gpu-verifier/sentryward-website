@@ -6,6 +6,10 @@
   'use strict';
   var NS = 'http://www.w3.org/2000/svg';
   var SW = (window.SW = { figs: {}, all: [] });
+  // Translates English text into the page's language (its <html lang>) using the dictionary
+  // that js/i18n/<lang>.js registers; text without a translation stays in English.
+  var DICT = (window.SW_I18N || {})[document.documentElement.lang] || {};
+  SW.t = function (en) { return Object.prototype.hasOwnProperty.call(DICT, en) ? DICT[en] : en; };
   SW.reduced = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
   // ---------- DOM ----------
@@ -156,7 +160,7 @@
     this.visible = false;
     this.looped = false;
     this._frame = this._frame.bind(this);
-    this.wrap.setAttribute('title', 'Click to pause or resume');
+    this.wrap.setAttribute('title', SW.t('Click to pause or resume'));
     this.wrap.addEventListener('click', function () { self.paused = !self.paused; self.sync(); });
     if (SW.reduced) { this.seek(this.d); return; }
     this.seek(0);
@@ -204,7 +208,7 @@
       if (!f) return;
       try { f(el); } catch (e) {
         console.error(e);
-        SW.div('fig-error', el, 'This figure failed to load: ' + e.message);
+        SW.div('fig-error', el, SW.t('This figure failed to load: ') + e.message);
       }
     });
   });

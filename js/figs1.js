@@ -12,7 +12,9 @@
     var top = y - (lines - 1) * 1.25 * fs / 2;
     var east = o.anchor === 'end';
     var c = S.el('g', { 'class': 'stepc' }, g);
-    var w0 = (text.split('\n')[0].replace(/[`*]/g, '').length) * fs * 0.52;
+    // CJK characters are about twice as wide as Latin ones.
+    var first = text.split('\n')[0].replace(/[`*]/g, '');
+    var w0 = (first.length + (first.match(/[\u3000-\u9fff\uff00-\uffef]/g) || []).length) * fs * 0.52;
     var cx = east ? x - w0 - 12 : x + 8;
     S.el('circle', { cx: cx, cy: top, r: 8 }, c);
     S.text(c, cx, top, String(n), { fs: 10 });
@@ -26,19 +28,19 @@
     function X(x) { return 22 + (x + 1.35) * K; }
     function Y(y) { return 40 + (1.1 - y) * K; }
     var XS = [1.0, 3.5, 6.0, 8.5, 11.8], VALS = ['(2, 0)', '(1, 0)', '(1, 64)', '(1, 0)', '(2, 0)'];
-    var TOPS = ['`arrive`', '`expect_tx(64)`', 'copy lands:\n`complete_tx(64)`', '`arrive`: state reaches\n(0, 0), phase 0 completes'];
+    var TOPS = ['`arrive`', '`expect_tx(64)`', S.t('copy lands:\n`complete_tx(64)`'), S.t('`arrive`: state reaches\n(0, 0), phase 0 completes')];
     var BOTS = ['(−1, 0)', '(0, +64)', '(0, −64)', '(−1, 0)'];
     var MIDS = [2.25, 4.75, 7.25, 10.15];
     var steps = [
-      { t: 0, label: '<code>init(bar, 2)</code> starts phase 0 with two pending arrivals and no pending bytes.' },
-      { t: 1.8, label: '<code>arrive</code> removes one pending arrival.' },
-      { t: 3.6, label: '<code>expect_tx(64)</code> announces 64 bytes: the phase now also waits for them.' },
-      { t: 5.4, label: 'A copy lands and subtracts its 64 bytes. One arrival is still pending, so phase 0 is not complete.' },
-      { t: 7.4, label: 'The second <code>arrive</code> brings both counters to zero. Phase 0 completes, the counters reset for phase 1, and <code>wait(bar, 0)</code> returns.' }
+      { t: 0, label: S.t('<code>init(bar, 2)</code> starts phase 0 with two pending arrivals and no pending bytes.') },
+      { t: 1.8, label: S.t('<code>arrive</code> removes one pending arrival.') },
+      { t: 3.6, label: S.t('<code>expect_tx(64)</code> announces 64 bytes: the phase now also waits for them.') },
+      { t: 5.4, label: S.t('A copy lands and subtracts its 64 bytes. One arrival is still pending, so phase 0 is not complete.') },
+      { t: 7.4, label: S.t('The second <code>arrive</code> brings both counters to zero. Phase 0 completes, the counters reset for phase 1, and <code>wait(bar, 0)</code> returns.') }
     ];
     new S.Anim(host, {
       vb: [960, 236], minw: 680, duration: 10, steps: steps,
-      alt: 'The state of an mbarrier through phase 0 and into phase 1.',
+      alt: S.t('The state of an mbarrier through phase 0 and into phase 1.'),
       build: function (svg) {
         var hw = 0.675 * K, hh = 0.4 * K;
         S.text(svg, X(-0.55), Y(0), '`init`\n`(bar, 2)`', { fs: 12, cls: 'muted' });
@@ -59,11 +61,11 @@
           });
         }
         var br0 = S.el('path', { 'class': 'bracket' }, svg);
-        var br0t = S.text(svg, X(4.75), Y(-1.38), 'phase 0 of `bar`', { fs: 11.5, cls: 'muted' });
+        var br0t = S.text(svg, X(4.75), Y(-1.38), S.t('phase 0 of `bar`'), { fs: 11.5, cls: 'muted' });
         var br1 = S.el('path', { 'class': 'bracket', d: S.path([[X(11.1), Y(-1.0)], [X(11.1), Y(-1.1)], [X(12.5), Y(-1.1)], [X(12.5), Y(-1.0)]]) }, svg);
-        var br1t = S.text(svg, X(11.8), Y(-1.38), 'phase 1', { fs: 11.5, cls: 'muted' });
-        var wait = S.text(svg, X(10.15), Y(-1.38), '`wait(bar, 0)`\nwaits', { fs: 11.5, cls: 'muted' });
-        var waitR = S.text(svg, X(10.15), Y(-1.38), '`wait(bar, 0)`\nreturns', { fs: 11.5, cls: 'badtext' });
+        var br1t = S.text(svg, X(11.8), Y(-1.38), S.t('phase 1'), { fs: 11.5, cls: 'muted' });
+        var wait = S.text(svg, X(10.15), Y(-1.38), S.t('`wait(bar, 0)`\nwaits'), { fs: 11.5, cls: 'muted' });
+        var waitR = S.text(svg, X(10.15), Y(-1.38), S.t('`wait(bar, 0)`\nreturns'), { fs: 11.5, cls: 'badtext' });
         var dot = S.el('circle', { r: 4, 'class': 'dot' }, svg);
         var flash = S.el('rect', { x: X(11.8) - hw - 5, y: Y(0) - hh - 5, width: 2 * hw + 10, height: 2 * hh + 10, rx: 6, 'class': 'flash' }, svg);
 
@@ -106,15 +108,15 @@
     function X(x) { return 78 + x * K; }
     function Y(y) { return 26 + (5.45 - y) * K; }
     var steps = [
-      { t: 0, label: 'Thread 0 initializes both barriers to expect one arrival, and a <code>syncthreads</code> makes sure all threads see them before any role starts.' },
-      { t: 2.2, label: '<b>1</b>&ensp;The producer’s <code>arrive.expect_tx</code> gives <code>full</code> its one arrival and announces 32 KB, the size of both tiles.' },
-      { t: 4.6, label: '<b>2</b>&ensp;The producer starts both TMA copies.' },
-      { t: 6.8, label: '<b>3</b>&ensp;Each copy reports its bytes to <code>full</code> when its data lands. Once all 32 KB have landed, phase 0 completes.' },
-      { t: 9.8, label: '<b>4</b>&ensp;The consumer was waiting for phase 0 of <code>full</code>, so it proceeds only now, with both tiles in shared memory.' },
-      { t: 12.0, label: '<b>5</b>&ensp;It starts the multiplication <code>acc ← sA · sB</code> on the tensor core.' },
-      { t: 14.4, label: '<b>6</b>&ensp;When the multiplication completes, the hardware arrives on <code>mma_done</code>, completing its phase 0.' },
-      { t: 16.6, label: '<b>7</b>&ensp;Every thread was waiting for phase 0 of <code>mma_done</code>; now the epilogue starts.' },
-      { t: 18.6, label: '<b>8</b>&ensp;Each thread <i>t</i> loads row <i>t</i> of the accumulator and stores it to row <i>t</i> of <i>C</i>.' }
+      { t: 0, label: S.t('Thread 0 initializes both barriers to expect one arrival, and a <code>syncthreads</code> makes sure all threads see them before any role starts.') },
+      { t: 2.2, label: S.t('<b>1</b>&ensp;The producer’s <code>arrive.expect_tx</code> gives <code>full</code> its one arrival and announces 32 KB, the size of both tiles.') },
+      { t: 4.6, label: S.t('<b>2</b>&ensp;The producer starts both TMA copies.') },
+      { t: 6.8, label: S.t('<b>3</b>&ensp;Each copy reports its bytes to <code>full</code> when its data lands. Once all 32 KB have landed, phase 0 completes.') },
+      { t: 9.8, label: S.t('<b>4</b>&ensp;The consumer was waiting for phase 0 of <code>full</code>, so it proceeds only now, with both tiles in shared memory.') },
+      { t: 12.0, label: S.t('<b>5</b>&ensp;It starts the multiplication <code>acc ← sA · sB</code> on the tensor core.') },
+      { t: 14.4, label: S.t('<b>6</b>&ensp;When the multiplication completes, the hardware arrives on <code>mma_done</code>, completing its phase 0.') },
+      { t: 16.6, label: S.t('<b>7</b>&ensp;Every thread was waiting for phase 0 of <code>mma_done</code>; now the epilogue starts.') },
+      { t: 18.6, label: S.t('<b>8</b>&ensp;Each thread <i>t</i> loads row <i>t</i> of the accumulator and stores it to row <i>t</i> of <i>C</i>.') }
     ];
     var T = {
       s1: [2.4, 3.2], tA: [5.0, 7.3], tB: [5.3, 8.4], s3a: [7.3, 7.8], s3b: [8.4, 8.9], done0: 8.9,
@@ -122,10 +124,10 @@
     };
     new S.Anim(host, {
       vb: [944, 478], minw: 700, duration: 22.2, steps: steps, labels: false,
-      alt: 'The running example: data moves from global memory through shared and tensor memory to C, coordinated by two barriers.',
+      alt: S.t('The running example: data moves from global memory through shared and tensor memory to C, coordinated by two barriers.'),
       build: function (svg) {
         var mw = 2.0 * K, mh = 1.0 * K;
-        var MEM = [['ga', 0, 'global memory\n`A`, `B`'], ['sh', 2.9, 'shared memory\n`sA`, `sB`'], ['tm', 6.1, 'tensor memory\n`acc`'], ['rg', 8.95, 'registers of *t*\nrow *t* of `acc`'], ['gc', 11.85, 'global memory\n*C*']];
+        var MEM = [['ga', 0, 'global memory\n`A`, `B`'], ['sh', 2.9, 'shared memory\n`sA`, `sB`'], ['tm', 6.1, 'tensor memory\n`acc`'], ['rg', 8.95, S.t('registers of *t*\nrow *t* of `acc`')], ['gc', 11.85, 'global memory\n*C*']];
         var mem = {};
         MEM.forEach(function (m) {
           mem[m[0]] = S.box(svg, X(m[1]), Y(4.4), mw, mh, 'box mem', 3);
@@ -134,7 +136,7 @@
         for (var i = 0; i < 4; i++) {
           S.el('path', { d: S.path([[X(MEM[i][1]) + mw / 2 + 1, Y(4.4)], [X(MEM[i + 1][1]) - mw / 2 - 2, Y(4.4)]]), 'class': 'ln data' }, svg);
         }
-        [['TMA copy', 1.45], ['tensor-core MMA', 4.5], ['load', 7.525], ['store', 10.4]].forEach(function (l) {
+        [['TMA copy', 1.45], [S.t('tensor-core MMA'), 4.5], [S.t('load'), 7.525], [S.t('store'), 10.4]].forEach(function (l) {
           S.text(svg, X(l[1]), Y(5.15), l[0], { fs: 11, valign: 'bottom', cls: 'muted' });
         });
         // Barriers, with their state (pending arrivals, pending bytes) as a second line.
@@ -152,11 +154,11 @@
           S.text(svg, X(x), Y(-0.25) + 10, b, { fs: 10.5, cls: 'muted' });
           return r;
         }
-        var prod = thread(1.6, 'producer', 'thread 0');
-        var mmai = thread(4.65, 'consumer', 'thread 32');
-        var epi = thread(10.05, 'epilogue', 'all 128 threads');
-        var waitM = S.text(svg, X(4.65), Y(-0.25) + 0.45 * K + 13, 'waits for `full`', { fs: 11, cls: 'muted it' });
-        var waitE = S.text(svg, X(10.05), Y(-0.25) + 0.45 * K + 13, 'waits for `mma_done`', { fs: 11, cls: 'muted it' });
+        var prod = thread(1.6, 'producer', S.t('thread 0'));
+        var mmai = thread(4.65, 'consumer', S.t('thread 32'));
+        var epi = thread(10.05, 'epilogue', S.t('all 128 threads'));
+        var waitM = S.text(svg, X(4.65), Y(-0.25) + 0.45 * K + 13, S.t('waits for `full`'), { fs: 11, cls: 'muted it' });
+        var waitE = S.text(svg, X(10.05), Y(-0.25) + 0.45 * K + 13, S.t('waits for `mma_done`'), { fs: 11, cls: 'muted it' });
 
         // Arrows: blue updates and releases, dashed starts.
         function arrow(pts, cls) {
@@ -174,14 +176,14 @@
           s8b: arrow([[X(10.4), Y(0.2)], [X(10.4), Y(4.35)]], 'start')
         };
         var L = [
-          stepLabel(svg, X(2.3), Y(0.95), 1, 'arrive,\nannounce\n32 KB', { cls: 'hbtext' }),
-          stepLabel(svg, X(1.2), Y(2.2), 2, 'start\ncopies', { anchor: 'end' }),
-          stepLabel(svg, X(3.0), Y(3.3), 3, 'bytes\nland', { cls: 'hbtext' }),
-          stepLabel(svg, X(3.95), Y(0.75), 4, 'release', { cls: 'hbtext' }),
-          stepLabel(svg, X(5.05), Y(3.3), 5, 'start\nMMA'),
-          stepLabel(svg, X(6.7), Y(3.35), 6, 'MMA done:\narrive', { cls: 'hbtext' }),
-          stepLabel(svg, X(8.55), Y(0.75), 7, 'release', { anchor: 'end', cls: 'hbtext' }),
-          stepLabel(svg, X(10.5), Y(2.3), 8, 'load and\nstore row *t*')
+          stepLabel(svg, X(2.3), Y(0.95), 1, S.t('arrive,\nannounce\n32 KB'), { cls: 'hbtext' }),
+          stepLabel(svg, X(1.2), Y(2.2), 2, S.t('start\ncopies'), { anchor: 'end' }),
+          stepLabel(svg, X(3.0), Y(3.3), 3, S.t('bytes\nland'), { cls: 'hbtext' }),
+          stepLabel(svg, X(3.95), Y(0.75), 4, S.t('release'), { cls: 'hbtext' }),
+          stepLabel(svg, X(5.05), Y(3.3), 5, S.t('start\nMMA')),
+          stepLabel(svg, X(6.7), Y(3.35), 6, S.t('MMA done:\narrive'), { cls: 'hbtext' }),
+          stepLabel(svg, X(8.55), Y(0.75), 7, S.t('release'), { anchor: 'end', cls: 'hbtext' }),
+          stepLabel(svg, X(10.5), Y(2.3), 8, S.t('load and\nstore row *t*'))
         ];
         // Moving data.
         function chip(label, w, h) {
@@ -203,14 +205,14 @@
         return function (t) {
           // Barrier states.
           var fs, ds;
-          if (t < T.s1[1]) fs = 'phase 0: (1, 0)';
-          else if (t < T.s3a[1]) fs = 'phase 0: (0, 32 KB)';
-          else if (t < T.done0) fs = 'phase 0: (0, 16 KB)';
-          else if (t < T.done0 + 0.7) fs = 'phase 0 completes';
-          else fs = 'phase 1: (1, 0)';
-          if (t < T.s6[1]) ds = 'phase 0: (1, 0)';
-          else if (t < T.s6[1] + 0.7) ds = 'phase 0 completes';
-          else ds = 'phase 1: (1, 0)';
+          if (t < T.s1[1]) fs = S.t('phase 0: (1, 0)');
+          else if (t < T.s3a[1]) fs = S.t('phase 0: (0, 32 KB)');
+          else if (t < T.done0) fs = S.t('phase 0: (0, 16 KB)');
+          else if (t < T.done0 + 0.7) fs = S.t('phase 0 completes');
+          else fs = S.t('phase 1: (1, 0)');
+          if (t < T.s6[1]) ds = S.t('phase 0: (1, 0)');
+          else if (t < T.s6[1] + 0.7) ds = S.t('phase 0 completes');
+          else ds = S.t('phase 1: (1, 0)');
           if (full._s !== fs) { S.setText(full.st, fs, 11.5); full._s = fs; }
           if (done._s !== ds) { S.setText(done.st, ds, 11.5); done._s = ds; }
           S.show(full.fl, Math.max(S.bump(t, 0.2, 1.4), S.bump(t, T.done0 - 0.1, T.done0 + 0.8)));
@@ -270,22 +272,22 @@
     // Each row: event, state of mma_done, note, row class, and the step at which it appears.
     var A = [
       ['init(<code>mma_done</code>, 1)', '(1, 0)', '', '', 0],
-      ['MMA and commit issued', '', '', '', 0],
-      ['Epilogue reads <code>acc</code>', '', '<b>not yet written</b>', 'bad', 1],
-      ['Tensor core writes <code>acc</code>', '', '', '', 2],
-      ['Commit arrives', '(0, 0)', '<b>phase 0 completes</b>', 'ph', 2]
+      [S.t('MMA and commit issued'), '', '', '', 0],
+      [S.t('Epilogue reads <code>acc</code>'), '', S.t('<b>not yet written</b>'), 'bad', 1],
+      [S.t('Tensor core writes <code>acc</code>'), '', '', '', 2],
+      [S.t('Commit arrives'), '(0, 0)', S.t('<b>phase 0 completes</b>'), 'ph', 2]
     ];
     var B = [
       ['init(<code>mma_done</code>, 1)', '(1, 0)', '', '', 0],
-      ['MMA and commit issued', '', '', '', 0],
-      ['Tensor core writes <code>acc</code>', '', '', '', 1],
-      ['Commit arrives', '(0, 0)', '<b>phase 0 completes</b>', 'ph', 1],
-      ['Epilogue reads <code>acc</code>', '', '<b>already written</b>', 'good', 2]
+      [S.t('MMA and commit issued'), '', '', '', 0],
+      [S.t('Tensor core writes <code>acc</code>'), '', '', '', 1],
+      [S.t('Commit arrives'), '(0, 0)', S.t('<b>phase 0 completes</b>'), 'ph', 1],
+      [S.t('Epilogue reads <code>acc</code>'), '', S.t('<b>already written</b>'), 'good', 2]
     ];
     var LABELS = [
-      'In both executions, the copies land and complete phase 0 of <code>full</code>, as in the correct kernel, and the consumer issues the MMA and the commit. Since the epilogue no longer waits, nothing holds back its read of <code>acc</code>.',
-      'In Schedule A, the epilogue reads <code>acc</code> right away, before the tensor core has written it. In Schedule B, the epilogue happens to be slow: the tensor core writes <code>acc</code> first, and the commit\u2019s arrival completes phase 0 of <code>mma_done</code>.',
-      'In Schedule A, the tensor core writes <code>acc</code> only after the read, and phase 0 completes just the same. The barrier behaved the same way in both executions; only in Schedule B does the epilogue read the product.'
+      S.t('In both executions, the copies land and complete phase 0 of <code>full</code>, as in the correct kernel, and the consumer issues the MMA and the commit. Since the epilogue no longer waits, nothing holds back its read of <code>acc</code>.'),
+      S.t('In Schedule A, the epilogue reads <code>acc</code> right away, before the tensor core has written it. In Schedule B, the epilogue happens to be slow: the tensor core writes <code>acc</code> first, and the commit\u2019s arrival completes phase 0 of <code>mma_done</code>.'),
+      S.t('In Schedule A, the tensor core writes <code>acc</code> only after the read, and phase 0 completes just the same. The barrier behaved the same way in both executions; only in Schedule B does the epilogue read the product.')
     ];
     var wrap = S.div('anim', host);
     var head = S.div('stepper-head', wrap);
@@ -308,7 +310,7 @@
       S.div('sched-title', col, title);
       var t = document.createElement('table');
       t.className = 'booktabs';
-      t.innerHTML = '<thead><tr><th>Event</th><th>State</th><th></th></tr></thead>';
+      t.innerHTML = S.t('<thead><tr><th>Event</th><th>State</th><th></th></tr></thead>');
       var tb = document.createElement('tbody');
       t.appendChild(tb);
       col.appendChild(t);
@@ -320,8 +322,8 @@
         return { tr: tr, step: r[4] };
       });
     }
-    var ra = table('<b>Schedule A:</b> the epilogue reads first', A);
-    var rb = table('<b>Schedule B:</b> the tensor core writes first', B);
+    var ra = table(S.t('<b>Schedule A:</b> the epilogue reads first'), A);
+    var rb = table(S.t('<b>Schedule B:</b> the tensor core writes first'), B);
     var cur = -1;
     function show(k) {
       if (k < 0 || k >= LABELS.length) return;
@@ -347,7 +349,7 @@
     }
     function step(k) { show(k); paused = true; sync(); }
     S.div('anim-pp', wrap, '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5h3v11H4zM9 2.5h3v11H9z"/></svg>');
-    wrap.setAttribute('title', 'Click to pause or resume');
+    wrap.setAttribute('title', S.t('Click to pause or resume'));
     wrap.addEventListener('click', function () { paused = !paused; sync(); });
     prev.addEventListener('click', function (e) { e.stopPropagation(); step(cur - 1); });
     next.addEventListener('click', function (e) { e.stopPropagation(); step(cur + 1); });
@@ -370,7 +372,7 @@
     function Y(y) { return 18 + (1.62 - y) * KY; }
     var W = 2.3 * KX, WN = 2.4 * KX, H = 0.9 * KY;
     var stage = S.div('anim-stage', S.div('anim static', host));
-    var svg = S.el('svg', { viewBox: '0 0 972 512', role: 'img', 'aria-label': 'The stages of SentryWard: specialization, two views, the well-synchronization check, the race and lifecycle check, memory elimination, and the expression check.' }, stage);
+    var svg = S.el('svg', { viewBox: '0 0 972 512', role: 'img', 'aria-label': S.t('The stages of SentryWard: specialization, two views, the well-synchronization check, the race and lifecycle check, memory elimination, and the expression check.') }, stage);
     svg.style.minWidth = '700px';
     var N = {};
     function node(id, x, y, w, cls, label) {
@@ -379,18 +381,18 @@
       S.text(g, X(x), Y(y), label, { fs: 14 });
       N[id] = { x: X(x), y: Y(y), w: w, h: H };
     }
-    node('kernel', 0, 1.15, W, 'input', 'PTX kernel +\nlaunch configuration');
-    node('spec', 0, -0.95, W, 'artifact', 'Specialized\nPTX program');
-    node('events', 3.17, 0, W, 'artifact', 'Event view');
-    node('values', 3.17, -1.9, W, 'artifact', 'Value view');
-    node('cert', 6.34, 0, W, 'stage', 'Well-synchronization\ncheck');
-    node('hb', 9.4, 0, WN, 'artifact', 'Happens-before\ngraph');
-    node('race', 9.4, -1.9, WN, 'stage', 'Race and\nlifecycle check');
-    node('serial', 9.4, -3.8, WN, 'artifact', 'Serialized program');
-    node('elim', 6.34, -3.8, W, 'stage', 'Memory elimination');
-    node('scalar', 3.17, -3.8, W, 'artifact', 'Scalar expressions');
-    node('equiv', 3.17, -5.7, W, 'stage', 'Expression check');
-    node('ref', 0, -5.7, W, 'input', 'Reference program +\nparameter binding');
+    node('kernel', 0, 1.15, W, 'input', S.t('PTX kernel +\nlaunch configuration'));
+    node('spec', 0, -0.95, W, 'artifact', S.t('Specialized\nPTX program'));
+    node('events', 3.17, 0, W, 'artifact', S.t('Event view'));
+    node('values', 3.17, -1.9, W, 'artifact', S.t('Value view'));
+    node('cert', 6.34, 0, W, 'stage', S.t('Well-synchronization\ncheck'));
+    node('hb', 9.4, 0, WN, 'artifact', S.t('Happens-before\ngraph'));
+    node('race', 9.4, -1.9, WN, 'stage', S.t('Race and\nlifecycle check'));
+    node('serial', 9.4, -3.8, WN, 'artifact', S.t('Serialized program'));
+    node('elim', 6.34, -3.8, W, 'stage', S.t('Memory elimination'));
+    node('scalar', 3.17, -3.8, W, 'artifact', S.t('Scalar expressions'));
+    node('equiv', 3.17, -5.7, W, 'stage', S.t('Expression check'));
+    node('ref', 0, -5.7, W, 'input', S.t('Reference program +\nparameter binding'));
     function a(id, side) { return S.anchor(N[id], side); }
     function flow(pts, cls, label, lp) {
       var p = S.el('path', { d: S.path(pts), 'class': 'ln ' + (cls || '') }, svg);
@@ -405,17 +407,17 @@
     flow([a('cert', 'e'), a('hb', 'w')]);
     flow([a('cert', 'n'), [X(6.34), Y(1.15) + 18]], 'bad');
     flow([a('hb', 's'), a('race', 'n')]);
-    flow([a('values', 'e'), a('race', 'w')], '', '(symbolic) memory addresses', [(X(3.17) + X(9.4)) / 2, Y(-1.9) - 10]);
-    flow([a('race', 's'), a('serial', 'n')], '', 'race-free', [X(9.4) + 8, (Y(-1.9) + Y(-3.8)) / 2, 'muted', 'start']);
+    flow([a('values', 'e'), a('race', 'w')], '', S.t('(symbolic) memory addresses'), [(X(3.17) + X(9.4)) / 2, Y(-1.9) - 10]);
+    flow([a('race', 's'), a('serial', 'n')], '', S.t('race-free'), [X(9.4) + 8, (Y(-1.9) + Y(-3.8)) / 2, 'muted', 'start']);
     flow([a('race', 'e'), [a('race', 'e')[0] + 12, a('race', 'e')[1]]], 'bad');
     flow([a('serial', 'w'), a('elim', 'e')]);
-    flow([a('values', 'se'), a('elim', 'nw')], '', 'symbolic tensor expressions', [X(3.17) + 115, (Y(-1.9) + Y(-3.8)) / 2 - 4, 'muted', 'start']);
+    flow([a('values', 'se'), a('elim', 'nw')], '', S.t('symbolic tensor expressions'), [X(3.17) + 115, (Y(-1.9) + Y(-3.8)) / 2 - 4, 'muted', 'start']);
     flow([a('elim', 'w'), a('scalar', 'e')]);
     flow([a('scalar', 's'), a('equiv', 'n')]);
     flow([a('ref', 'e'), a('equiv', 'w')]);
     flow([a('equiv', 'e'), [X(6.34) - 70, Y(-5.7)]]);
-    S.text(svg, X(6.34), Y(1.22), 'not well-synchronized\n(with a witness)', { fs: 13, cls: 'badtext' });
-    S.text(svg, a('race', 'e')[0] + 18, Y(-1.9), 'race\n(with a witness)', { fs: 13, cls: 'badtext', anchor: 'start' });
-    S.text(svg, X(6.34) - 60, Y(-5.7), 'equivalent / no proof found', { fs: 13, anchor: 'start' });
+    S.text(svg, X(6.34), Y(1.22), S.t('not well-synchronized\n(with a witness)'), { fs: 13, cls: 'badtext' });
+    S.text(svg, a('race', 'e')[0] + 18, Y(-1.9), S.t('race\n(with a witness)'), { fs: 13, cls: 'badtext', anchor: 'start' });
+    S.text(svg, X(6.34) - 60, Y(-5.7), S.t('equivalent / no proof found'), { fs: 13, anchor: 'start' });
   };
 })();
